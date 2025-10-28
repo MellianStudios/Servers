@@ -21,21 +21,28 @@ namespace ECS
     {
         bool IsSocketActive(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID);
         bool IsSocketRequestedToClose(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID);
+        bool IsAccountLinkedToSocket(::ECS::Singletons::NetworkState& networkState, u64 accountID);
+        bool IsAccountLinkedToEntity(::ECS::Singletons::NetworkState& networkState, u64 accountID);
         bool IsCharacterLinkedToSocket(::ECS::Singletons::NetworkState& networkState, u64 characterID);
         bool IsCharacterLinkedToEntity(::ECS::Singletons::NetworkState& networkState, u64 characterID);
-        bool IsSocketLinkedToEntity(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID);
+        bool IsSocketLinkedToAccountEntity(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID);
+        bool IsSocketLinkedToCharacterEntity(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID);
 
+        bool GetSocketIDFromAccountID(::ECS::Singletons::NetworkState& networkState, u64 accountID, ::Network::SocketID& socketID);
         bool GetSocketIDFromCharacterID(::ECS::Singletons::NetworkState& networkState, u64 characterID, ::Network::SocketID& socketID);
-        bool GetEntityIDFromCharacterID(::ECS::Singletons::NetworkState& networkState, u64 characterID, entt::entity& entity);
-        bool GetEntityIDFromSocketID(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID, entt::entity& entity);
+        bool GetAccountEntity(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID, entt::entity& entity);
+        bool GetAccountEntity(::ECS::Singletons::NetworkState& networkState, u64 accountID, entt::entity& entity);
+        bool GetCharacterEntity(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID, entt::entity& entity);
+        bool GetCharacterEntity(::ECS::Singletons::NetworkState& networkState, u64 characterID, entt::entity& entity);
 
         bool ActivateSocket(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID);
         bool DeactivateSocket(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID);
         bool RequestSocketToClose(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID);
 
-        bool UnlinkSocketFromEntity(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID);
-        bool UnlinkCharacterFromSocket(::ECS::Singletons::NetworkState& networkState, u64 characterID);
-        bool UnlinkCharacterFromEntity(::ECS::Singletons::NetworkState& networkState, u64 characterID);
+        void LinkSocketToAccount(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID, u64 accountID, entt::entity accountEntity);
+        void LinkSocketToCharacter(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID, u64 characterID, entt::entity characterEntity);
+        void UnlinkSocketFromAccount(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID, u64 accountID);
+        void UnlinkSocketFromCharacter(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID, u64 characterID);
 
         bool SendPacket(Singletons::NetworkState& networkState, ::Network::SocketID socketID, std::shared_ptr<Bytebuffer>& buffer);
         void SendToNearby(Singletons::NetworkState& networkState, World& world, const entt::entity sender, const Components::VisibilityInfo& visibilityInfo, bool sendToSelf, std::shared_ptr<Bytebuffer>& buffer);

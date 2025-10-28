@@ -84,9 +84,7 @@ namespace ECS::Systems
 
             // Network Cleanup
             {
-                Util::Network::UnlinkSocketFromEntity(networkState, netInfo.socketID);
-                Util::Network::UnlinkCharacterFromSocket(networkState, characterID);
-                Util::Network::UnlinkCharacterFromEntity(networkState, characterID);
+                Util::Network::UnlinkSocketFromCharacter(networkState, netInfo.socketID, characterID);
             }
 
             // Grid Cleanup

@@ -1,6 +1,7 @@
 #include "Scheduler.h"
 
 #include "Server-Game/ECS/Singletons/TimeState.h"
+#include "Server-Game/ECS/Systems/AccountLoginHandler.h"
 #include "Server-Game/ECS/Systems/CharacterLoginHandler.h"
 #include "Server-Game/ECS/Systems/DatabaseSetup.h"
 #include "Server-Game/ECS/Systems/NetworkConnection.h"
@@ -22,6 +23,7 @@ namespace ECS
 
         Systems::DatabaseSetup::Init(registry);
         Systems::NetworkConnection::Init(registry);
+        Systems::AccountLoginHandler::Init(registry);
         Systems::CharacterLoginHandler::Init(registry);
         Systems::UpdateWorld::Init(registry);
         Systems::UpdateScripts::Init(registry);
@@ -32,6 +34,7 @@ namespace ECS
         // TODO: You know, actually scheduling stuff and multithreading (enkiTS tasks?)
         Systems::DatabaseSetup::Update(registry, deltaTime);
         Systems::NetworkConnection::Update(registry, deltaTime);
+        Systems::AccountLoginHandler::Update(registry, deltaTime);
         Systems::CharacterLoginHandler::Update(registry, deltaTime);
         Systems::UpdateWorld::Update(registry, deltaTime);
         Systems::UpdateScripts::Update(registry, deltaTime);

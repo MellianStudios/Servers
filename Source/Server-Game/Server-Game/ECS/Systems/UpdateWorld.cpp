@@ -55,6 +55,8 @@
 #include <Base/Util/DebugHandler.h>
 #include <Base/Util/StringUtils.h>
 
+#include <Gameplay/Network/GameMessageRouter.h>
+
 #include <Meta/Generated/Server/LuaEvent.h>
 #include <Meta/Generated/Shared/NetworkPacket.h>
 #include <Meta/Generated/Shared/SpellEnum.h>
@@ -64,6 +66,9 @@
 #include <Scripting/LuaManager.h>
 
 #include <entt/entt.hpp>
+
+#include <libsodium/sodium.h>
+#include <spake2-ee/crypto_spake.h>
 
 namespace ECS::Systems
 {
@@ -177,6 +182,35 @@ namespace ECS::Systems
         
         world.EraseSingleton<Events::MapNeedsInitialization>();
         return true;
+    }
+
+    void UpdateWorld::HandleNetworkMessages(World& world, Scripting::Zenith* zenith, Singletons::TimeState& timeState, Singletons::GameCache& gameCache, Singletons::NetworkState& networkState)
+    {
+        u64 laneID = world.zenithKey.GetMapID();
+        moodycamel::ConcurrentQueue<Network::SocketMessageEvent>& messageEvents = networkState.server->GetMessageEvents(laneID);
+
+        Network::SocketMessageEvent messageEvent;
+        while (messageEvents.try_dequeue(messageEvent))
+        {
+            if (!Util::Network::IsSocketActive(networkState, messageEvent.socketID))
+                continue;
+
+            Network::MessageHeader messageHeader;
+            bool canCallHandler = networkState.messageRouter->GetMessageHeader(messageEvent.message, messageHeader) && networkState.messageRouter->HasValidHandlerForHeader(messageHeader);
+            if (canCallHandler)
+            {
+                entt::entity characterEntity;
+                Util::Network::GetCharacterEntity(networkState, messageEvent.socketID, characterEntity);
+
+                if (!world.ValidEntity(characterEntity) || networkState.messageRouter->CallHandler(&world, characterEntity, messageEvent.socketID, messageHeader, messageEvent.message))
+                    continue;
+            }
+
+            // Failed to Call Handler, Close Socket
+            {
+                Util::Network::RequestSocketToClose(networkState, messageEvent.socketID);
+            }
+        }
     }
 
     void UpdateWorld::HandleCreatureDeinitialization(World& world, Scripting::Zenith* zenith, Singletons::TimeState& timeState, Singletons::GameCache& gameCache)
@@ -1723,24 +1757,28 @@ namespace ECS::Systems
                 if (!Util::Network::IsSocketActive(networkState, request.socketID))
                     continue;
 
+                // TODO : Upgrade targetMapID to ZenithKey
+                u64 laneID = request.targetMapID;
                 if (!worldState.HasWorld(request.targetMapID))
+                {
                     worldState.AddWorld(request.targetMapID);
+                    networkState.server->AddLane(laneID);
+                }
 
                 World& world = worldState.GetWorld(request.targetMapID);
-                entt::entity socketEntity = world.CreateEntity();
+                entt::entity characterEntity = world.CreateEntity();
 
-                auto& netInfo = world.Emplace<Components::NetInfo>(socketEntity);
+                auto& netInfo = world.Emplace<Components::NetInfo>(characterEntity);
                 netInfo.socketID = request.socketID;
 
-                auto& objectInfo = world.Emplace<Components::ObjectInfo>(socketEntity);
+                auto& objectInfo = world.Emplace<Components::ObjectInfo>(characterEntity);
                 objectInfo.guid = ObjectGUID(ObjectGUID::Type::Player, request.characterID);
 
                 worldState.SetMapIDForSocket(request.socketID, request.targetMapID);
-                networkState.socketIDToEntity[request.socketID] = socketEntity;
-                networkState.characterIDToEntity[request.characterID] = socketEntity;
-                networkState.characterIDToSocketID[request.characterID] = request.socketID;
+                Util::Network::LinkSocketToCharacter(networkState, request.socketID, request.characterID, characterEntity);
+                networkState.server->SetSocketIDLane(request.socketID, laneID);
 
-                Util::Cache::CharacterCreate(gameCache, request.characterID, request.characterName, socketEntity);
+                Util::Cache::CharacterCreate(gameCache, request.characterID, request.characterName, characterEntity);
 
                 Util::Network::SendPacket(networkState, request.socketID, Generated::ServerWorldTransferPacket{
                 });
@@ -1751,11 +1789,11 @@ namespace ECS::Systems
 
                 if (request.useTargetPosition)
                 {
-                    world.Emplace<Tags::CharacterWasWorldTransferred>(socketEntity);
+                    world.Emplace<Tags::CharacterWasWorldTransferred>(characterEntity);
                     Util::Persistence::Character::CharacterSetMapIDPositionOrientation(gameCache, request.characterID, request.targetMapID, request.targetPosition, request.targetOrientation);
                 }
 
-                world.Emplace<Events::CharacterNeedsInitialization>(socketEntity);
+                world.Emplace<Events::CharacterNeedsInitialization>(characterEntity);
             }
         }
 
@@ -1770,6 +1808,8 @@ namespace ECS::Systems
             Scripting::Zenith* zenith = luaManager->GetZenithStateManager().Get(world.zenithKey);
             if (!zenith)
                 continue;
+
+            HandleNetworkMessages(world, zenith, timeState, gameCache, networkState);
 
             UpdateCharacter::HandleUpdate(worldState, world, zenith, gameCache, networkState, deltaTime);
             HandleCreatureUpdate(world, zenith, timeState, gameCache, networkState);

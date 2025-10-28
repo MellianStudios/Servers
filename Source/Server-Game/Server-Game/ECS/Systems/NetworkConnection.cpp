@@ -2,7 +2,10 @@
 
 #include "Server-Game/Application/EnttRegistries.h"
 #include "Server-Game/ECS/Components/AABB.h"
+#include "Server-Game/ECS/Components/AccountInfo.h"
+#include "Server-Game/ECS/Components/AuthenticationInfo.h"
 #include "Server-Game/ECS/Components/CharacterInfo.h"
+#include "Server-Game/ECS/Components/CharacterListInfo.h"
 #include "Server-Game/ECS/Components/CharacterSpellCastInfo.h"
 #include "Server-Game/ECS/Components/CreatureAIInfo.h"
 #include "Server-Game/ECS/Components/CreatureInfo.h"
@@ -922,14 +925,7 @@ namespace ECS::Systems
 
         auto& networkState = registry->ctx().get<Singletons::NetworkState>();
 
-        entt::entity playerEntity;
-        if (!Util::Network::GetEntityIDFromSocketID(networkState, socketID, playerEntity))
-            return false;
-
-        if (!world.ValidEntity(playerEntity))
-            return false;
-
-        const auto& playerTransform = world.Get<Components::Transform>(playerEntity);
+        const auto& playerTransform = world.Get<Components::Transform>(entity);
         if (playerTransform.mapID != mapID)
             return false;
 
@@ -980,11 +976,7 @@ namespace ECS::Systems
         {
             auto transaction = conn->NewTransaction();
             auto queryResult = transaction.exec(pqxx::prepped("SetSpell"), pqxx::params{ spell.id, spell.name, spell.description, spell.auraDescription, spell.iconID, spell.castTime, spell.cooldown, spell.duration });
-            if (queryResult.affected_rows() == 0)
-            {
-                transaction.abort();
-            }
-            else
+            if (queryResult.affected_rows() != 0)
             {
                 transaction.commit();
                 gameCache.spellTables.idToDefinition[spell.id] = spell;
@@ -1146,7 +1138,7 @@ namespace ECS::Systems
         return true;
     }
 
-    bool HandleOnSendCheatCommand(Network::SocketID socketID, Network::Message& message)
+    bool HandleOnSendCheatCommand(World* world, entt::entity entity, Network::SocketID socketID, Network::Message& message)
     {
         entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
         entt::registry::context& ctx = registry->ctx();
@@ -1156,17 +1148,6 @@ namespace ECS::Systems
         
         auto command = Generated::CheatCommandEnum::None;
         if (!message.buffer->Get(command))
-            return false;
-
-        World* world = nullptr;
-        if (!worldState.GetWorldFromSocket(socketID, world))
-            return false;
-
-        entt::entity entity;
-        if (!Util::Network::GetEntityIDFromSocketID(networkState, socketID, entity))
-            return false;
-        
-        if (!world->ValidEntity(entity))
             return false;
 
         switch (command)
@@ -1327,9 +1308,9 @@ namespace ECS::Systems
         return true;
     }
 
-    bool HandleOnConnect(Network::SocketID socketID, Generated::ConnectPacket& packet)
+    bool HandleOnConnect(World* world, entt::entity entity, Network::SocketID socketID, Generated::ConnectPacket& packet)
     {
-        if (!StringUtils::StringIsAlphaAndAtLeastLength(packet.characterName, 2))
+        if (!StringUtils::StringIsAlphaAndAtLeastLength(packet.accountName, 2))
             return false;
 
         entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
@@ -1337,33 +1318,138 @@ namespace ECS::Systems
 
         auto& networkState = ctx.get<Singletons::NetworkState>();
 
+        AccountLoginRequest accountLoginRequest =
+        {
+            .socketID = socketID,
+            .name = packet.accountName
+        };
+        networkState.accountLoginRequest.enqueue(accountLoginRequest);
+
+        return true;
+    }
+    bool HandleOnAuthChallenge(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientAuthChallengePacket& packet)
+    {
+        entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
+        auto& networkState = registry->ctx().get<Singletons::NetworkState>();
+
+        auto& authInfo = registry->get<Components::AuthenticationInfo>(entity);
+        if (authInfo.state != AuthenticationState::Step1)
+        {
+            authInfo.state = AuthenticationState::Failed;
+            return false;
+        }
+
+        auto& accountInfo = registry->get<Components::AccountInfo>(entity);
+
+        unsigned char response2[crypto_spake_RESPONSE2BYTES];
+        i32 result = crypto_spake_step2(&authInfo.serverState, response2, accountInfo.name.c_str(), accountInfo.name.length(), "NovusEngine", 11, authInfo.blob, packet.challenge.data());
+        if (result != 0)
+        {
+            authInfo.state = AuthenticationState::Failed;
+            return false;
+        }
+
+        authInfo.state = AuthenticationState::Step2;
+
+        Generated::ServerAuthProofPacket authProofPacket;
+        std::memcpy(authProofPacket.proof.data(), response2, crypto_spake_RESPONSE2BYTES);
+
+        Util::Network::SendPacket(networkState, socketID, authProofPacket);
+
+        return true;
+    }
+    bool HandleOnAuthProof(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientAuthProofPacket& packet)
+    {
+        entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
+        auto& networkState = registry->ctx().get<Singletons::NetworkState>();
+
+        auto& authInfo = registry->get<Components::AuthenticationInfo>(entity);
+        if (authInfo.state != AuthenticationState::Step2)
+        {
+            authInfo.state = AuthenticationState::Failed;
+            return false;
+        }
+
+        auto& sessionKeys = networkState.socketIDToSessionKeys[socketID];
+        i32 result = crypto_spake_step4(&authInfo.serverState, &sessionKeys, packet.proof.data());
+        if (result != 0)
+        {
+            authInfo.state = AuthenticationState::Failed;
+            return false;
+        }
+
+        authInfo.state = AuthenticationState::Completed;
+
+        CharacterListRequest characterListRequest =
+        {
+            .socketID = socketID,
+            .socketEntity = entity
+        };
+        networkState.characterListRequest.enqueue(characterListRequest);
+
+        return true;
+    }
+    bool HandleOnCharacterSelect(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientCharacterSelectPacket& packet)
+    {
+        if (world || entity == entt::null)
+            return false;
+
+        entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
+        auto& networkState = registry->ctx().get<Singletons::NetworkState>();
+
+        auto& authInfo = registry->get<Components::AuthenticationInfo>(entity);
+        if (authInfo.state != AuthenticationState::Completed)
+        {
+            authInfo.state = AuthenticationState::Failed;
+            return false;
+        }
+
+        auto& characterListInfo = registry->get<Components::CharacterListInfo>(entity);
+        
+        u32 numCharacters = static_cast<u32>(characterListInfo.list.size());
+        if (packet.characterIndex >= numCharacters)
+            return false;
+
+        auto& characterEntry = characterListInfo.list[packet.characterIndex];
+
         CharacterLoginRequest characterLoginRequest =
         {
             .socketID = socketID,
-            .name = packet.characterName
+            .name = characterEntry.name
         };
         networkState.characterLoginRequest.enqueue(characterLoginRequest);
 
         return true;
     }
-    bool HandleOnPing(Network::SocketID socketID, Generated::PingPacket& packet)
+    bool HandleOnCharacterLogout(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientCharacterLogoutPacket& packet)
     {
+        if (!world || entity == entt::null)
+            return false;
+
+        entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
+        auto& networkState = registry->ctx().get<Singletons::NetworkState>();
+
+        if (world->ValidEntity(entity))
+        {
+            world->EmplaceOrReplace<Events::CharacterNeedsDeinitialization>(entity);
+        }
+
+        networkState.server->SetSocketIDLane(socketID, Network::DEFAULT_LANE_ID);
+        ECS::Util::Network::SendPacket(networkState, socketID, Generated::ServerCharacterLogoutPacket{});
+        return true;
+    }
+    bool HandleOnPing(World* world, entt::entity entity, Network::SocketID socketID, Generated::PingPacket& packet)
+    {
+        if (!world || entity == entt::null)
+            return true;
+
         entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
         auto& ctx = registry->ctx();
 
-        auto& worldState = ctx.get<Singletons::WorldState>();
         auto& networkState = ctx.get<Singletons::NetworkState>();
         auto& timeState = ctx.get<Singletons::TimeState>();
 
-        entt::entity socketEntity = entt::null;
-        if (!Util::Network::GetEntityIDFromSocketID(networkState, socketID, socketEntity))
-            return false;
-
-        World* world = nullptr;
-        if (!worldState.GetWorldFromSocket(socketID, world))
-            return false;
-
-        auto& netInfo = world->Get<Components::NetInfo>(socketEntity);
+        auto& netInfo = world->Get<Components::NetInfo>(entity);
         auto currentTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
         u64 timeSinceLastPing = currentTime - netInfo.lastPingTime;
@@ -1397,50 +1483,31 @@ namespace ECS::Systems
         return true;
     }
 
-    bool HandleOnClientUnitTargetUpdate(Network::SocketID socketID, Generated::ClientUnitTargetUpdatePacket& packet)
+    bool HandleOnClientUnitTargetUpdate(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientUnitTargetUpdatePacket& packet)
     {
         entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
-        auto& worldState = registry->ctx().get<Singletons::WorldState>();
         auto& networkState = registry->ctx().get<Singletons::NetworkState>();
 
-        World* world = nullptr;
-        if (!worldState.GetWorldFromSocket(socketID, world))
-            return false;
-
-        entt::entity socketEntity;
-        if (!Util::Network::GetEntityIDFromSocketID(networkState, socketID, socketEntity) ||
-            !world->ValidEntity(socketEntity))
-            return false;
-
-        auto& objectInfo = world->Get<Components::ObjectInfo>(socketEntity);
-        auto& visibilityInfo = world->Get<Components::VisibilityInfo>(socketEntity);
-        auto& targetInfo = world->Get<Components::TargetInfo>(socketEntity);
+        auto& objectInfo = world->Get<Components::ObjectInfo>(entity);
+        auto& visibilityInfo = world->Get<Components::VisibilityInfo>(entity);
+        auto& targetInfo = world->Get<Components::TargetInfo>(entity);
 
         entt::entity targetEntity = world->GetEntity(packet.targetGUID);
         targetInfo.target = world->ValidEntity(targetEntity) ? targetEntity : entt::null;
 
-        ECS::Util::Network::SendToNearby(networkState, *world, socketEntity, visibilityInfo, false, Generated::ServerUnitTargetUpdatePacket{
+        ECS::Util::Network::SendToNearby(networkState, *world, entity, visibilityInfo, false, Generated::ServerUnitTargetUpdatePacket{
             .guid = objectInfo.guid,
             .targetGUID = packet.targetGUID
         });
 
         return true;
     }
-    bool HandleOnClientUnitMove(Network::SocketID socketID, Generated::ClientUnitMovePacket& packet)
+    bool HandleOnClientUnitMove(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientUnitMovePacket& packet)
     {
         entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
         auto& ctx = registry->ctx();
 
         auto& networkState = ctx.get<Singletons::NetworkState>();
-        auto& worldState = ctx.get<Singletons::WorldState>();
-
-        entt::entity entity;
-        if (!Util::Network::GetEntityIDFromSocketID(networkState, socketID, entity))
-            return false;
-
-        World* world = nullptr;
-        if (!worldState.GetWorldFromSocket(socketID, world))
-            return false;
 
         auto& objectInfo = world->Get<Components::ObjectInfo>(entity);
         auto& transform = world->Get<Components::Transform>(entity);
@@ -1460,7 +1527,7 @@ namespace ECS::Systems
 
         return true;
     }
-    bool HandleOnClientContainerSwapSlots(Network::SocketID socketID, Generated::ClientContainerSwapSlotsPacket& packet)
+    bool HandleOnClientContainerSwapSlots(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientContainerSwapSlotsPacket& packet)
     {
         if (packet.srcContainer == packet.dstContainer && packet.srcSlot == packet.dstSlot)
             return false;
@@ -1469,19 +1536,7 @@ namespace ECS::Systems
         auto& ctx = registry->ctx();
 
         auto& gameCache = ctx.get<Singletons::GameCache>();
-        auto& worldState = ctx.get<Singletons::WorldState>();
         auto& networkState = ctx.get<Singletons::NetworkState>();
-
-        entt::entity entity;
-        if (!Util::Network::GetEntityIDFromSocketID(networkState, socketID, entity))
-            return false;
-
-        World* world = nullptr;
-        if (!worldState.GetWorldFromSocket(socketID, world))
-            return false;
-
-        if (!world->ValidEntity(entity) || !world->AllOf<Components::PlayerContainers>(entity))
-            return false;
 
         auto& playerContainers = world->Get<Components::PlayerContainers>(entity);
 
@@ -1640,22 +1695,13 @@ namespace ECS::Systems
         return true;
     }
 
-    bool HandleOnClientTriggerEnter(Network::SocketID socketID, Generated::ClientTriggerEnterPacket& packet)
+    bool HandleOnClientTriggerEnter(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientTriggerEnterPacket& packet)
     {
         entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
         auto& ctx = registry->ctx();
         auto& networkState = ctx.get<Singletons::NetworkState>();
-        auto& worldState = ctx.get<Singletons::WorldState>();
-
-        World* world = nullptr;
-        if (!worldState.GetWorldFromSocket(socketID, world))
-            return false;
 
         auto& proximityTriggers = world->GetSingleton<Singletons::ProximityTriggers>();
-
-        entt::entity playerEntity;
-        if (!Util::Network::GetEntityIDFromSocketID(networkState, socketID, playerEntity))
-            return false;
 
         entt::entity triggerEntity;
         if (!Util::ProximityTrigger::ProximityTriggerGetByID(proximityTriggers, packet.triggerID, triggerEntity))
@@ -1668,68 +1714,44 @@ namespace ECS::Systems
         if (!isServerAuthoritative)
             return false;
 
-        auto& playerTransform = world->Get<Components::Transform>(playerEntity);
-        auto& playerAABB = world->Get<Components::AABB>(playerEntity);
+        auto& playerTransform = world->Get<Components::Transform>(entity);
+        auto& playerAABB = world->Get<Components::AABB>(entity);
         auto& triggerTransform = world->Get<Components::Transform>(triggerEntity);
         auto& triggerAABB = world->Get<Components::AABB>(triggerEntity);
 
         if (!Util::Collision::Overlaps(playerTransform, playerAABB, triggerTransform, triggerAABB))
             return true;
 
-        Util::ProximityTrigger::AddPlayerToTriggerEntered(*world, proximityTrigger, triggerEntity, playerEntity);
+        Util::ProximityTrigger::AddPlayerToTriggerEntered(*world, proximityTrigger, triggerEntity, entity);
 
         return true;
     }
-    bool HandleOnClientSendChatMessage(Network::SocketID socketID, Generated::ClientSendChatMessagePacket& packet)
+    bool HandleOnClientSendChatMessage(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientSendChatMessagePacket& packet)
     {
         entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
         auto& ctx = registry->ctx();
 
-        auto& worldState = ctx.get<Singletons::WorldState>();
         auto& networkState = ctx.get<Singletons::NetworkState>();
 
-        World* world = nullptr;
-        if (!worldState.GetWorldFromSocket(socketID, world))
-            return false;
-
-        entt::entity socketEntity;
-        if (!Util::Network::GetEntityIDFromSocketID(networkState, socketID, socketEntity))
-            return false;
-
-        if (!world->ValidEntity(socketEntity))
-            return false;
-
-        auto& objectInfo = world->Get<Components::ObjectInfo>(socketEntity);
-        auto& visibilityInfo = world->Get<Components::VisibilityInfo>(socketEntity);
-        ECS::Util::Network::SendToNearby(networkState, *world, socketEntity, visibilityInfo, true, Generated::ServerSendChatMessagePacket{
+        auto& objectInfo = world->Get<Components::ObjectInfo>(entity);
+        auto& visibilityInfo = world->Get<Components::VisibilityInfo>(entity);
+        ECS::Util::Network::SendToNearby(networkState, *world, entity, visibilityInfo, true, Generated::ServerSendChatMessagePacket{
             .guid = objectInfo.guid,
             .message = packet.message
             });
 
         return true;
     }
-    bool HandleOnClientSpellCast(Network::SocketID socketID, Generated::ClientSpellCastPacket& packet)
+    bool HandleOnClientSpellCast(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientSpellCastPacket& packet)
     {
         entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
         auto& gameCache = registry->ctx().get<Singletons::GameCache>();
-        auto& worldState = registry->ctx().get<Singletons::WorldState>();
         auto& networkState = registry->ctx().get<Singletons::NetworkState>();
-
-        World* world = nullptr;
-        if (!worldState.GetWorldFromSocket(socketID, world))
-            return false;
-
-        entt::entity socketEntity;
-        if (!Util::Network::GetEntityIDFromSocketID(networkState, socketID, socketEntity))
-            return false;
-
-        if (!world->ValidEntity(socketEntity))
-            return false;
 
         u8 result = 0;
 
         GameDefine::Database::Spell* spell = nullptr;
-        auto& casterSpellCooldownHistory = world->Get<Components::UnitSpellCooldownHistory>(socketEntity);
+        auto& casterSpellCooldownHistory = world->Get<Components::UnitSpellCooldownHistory>(entity);
 
         if (!Util::Cache::GetSpellByID(gameCache, packet.spellID, spell))
         {
@@ -1751,8 +1773,8 @@ namespace ECS::Systems
             return true;
         }
 
-        auto& targetInfo = world->Get<Components::TargetInfo>(socketEntity);
-        auto& characterSpellCastInfo = world->Get<Components::CharacterSpellCastInfo>(socketEntity);
+        auto& targetInfo = world->Get<Components::TargetInfo>(entity);
+        auto& characterSpellCastInfo = world->Get<Components::CharacterSpellCastInfo>(entity);
 
         entt::entity spellEntity = entt::null;
         if (characterSpellCastInfo.activeSpellEntity == entt::null)
@@ -1775,7 +1797,7 @@ namespace ECS::Systems
             }
         }
 
-        auto& casterObjectInfo = world->Get<Components::ObjectInfo>(socketEntity);
+        auto& casterObjectInfo = world->Get<Components::ObjectInfo>(entity);
 
         ObjectGUID targetGUID = ObjectGUID::Empty;
         if (world->ValidEntity(targetInfo.target))
@@ -1810,19 +1832,23 @@ namespace ECS::Systems
         {
             u16 port = 4000;
             networkState.server = std::make_unique<Network::Server>(port);
-            networkState.gameMessageRouter = std::make_unique<Network::GameMessageRouter>();
+            networkState.messageRouter = std::make_unique<Network::MessageRouter>();
 
-            networkState.gameMessageRouter->SetMessageHandler(Generated::SendCheatCommandPacket::PACKET_ID, Network::GameMessageHandler(Network::ConnectionStatus::Connected, 0u, -1, &HandleOnSendCheatCommand));
+            networkState.messageRouter->SetMessageHandler(Generated::SendCheatCommandPacket::PACKET_ID, Network::MessageHandler(Network::ConnectionStatus::Connected, 0u, -1, &HandleOnSendCheatCommand));
 
-            networkState.gameMessageRouter->RegisterPacketHandler(Network::ConnectionStatus::None, HandleOnConnect);
-            networkState.gameMessageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnPing);
+            networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnConnect);
+            networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnAuthChallenge);
+            networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnAuthProof);
+            networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnCharacterSelect);
+            networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnCharacterLogout);
+            networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnPing);
 
-            networkState.gameMessageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnClientUnitTargetUpdate);
-            networkState.gameMessageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnClientUnitMove);
-            networkState.gameMessageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnClientContainerSwapSlots);
-            networkState.gameMessageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnClientTriggerEnter);
-            networkState.gameMessageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnClientSendChatMessage);
-            networkState.gameMessageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnClientSpellCast);
+            networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnClientUnitTargetUpdate);
+            networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnClientUnitMove);
+            networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnClientContainerSwapSlots);
+            networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnClientTriggerEnter);
+            networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnClientSendChatMessage);
+            networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnClientSpellCast);
 
             // Bind to IP/Port
             std::string ipAddress = "0.0.0.0";
@@ -1867,28 +1893,42 @@ namespace ECS::Systems
                 NC_LOG_INFO("Network : Client disconnected (SocketID : {0})", static_cast<u32>(socketID));
 
                 Util::Network::DeactivateSocket(networkState, socketID);
+                networkState.socketIDToSessionKeys.erase(socketID);
 
-                entt::entity entity;
-                if (!Util::Network::GetEntityIDFromSocketID(networkState, socketID, entity))
-                    continue;
+                entt::entity characterEntity;
+                if (Util::Network::GetCharacterEntity(networkState, socketID, characterEntity))
+                {
+                    u16 mapID;
+                    if (worldState.GetMapIDFromSocket(socketID, mapID))
+                    {
+                        worldState.ClearMapIDForSocket(socketID);
+                        World& world = worldState.GetWorld(mapID);
 
-                u16 mapID;
-                if (!worldState.GetMapIDFromSocket(socketID, mapID))
-                    continue;
+                        if (world.ValidEntity(characterEntity))
+                        {
+                            world.EmplaceOrReplace<Events::CharacterNeedsDeinitialization>(characterEntity);
+                        }
+                    }
+                    else
+                    {
+                        registry.destroy(characterEntity);
+                    }
+                }
 
-                worldState.ClearMapIDForSocket(socketID);
-                World& world = worldState.GetWorld(mapID);
+                entt::entity accountEntity;
+                if (Util::Network::GetAccountEntity(networkState, socketID, accountEntity))
+                {
+                    auto& accountInfo = registry.get<Components::AccountInfo>(accountEntity);
 
-                if (!world.ValidEntity(entity))
-                    continue;
-
-                world.EmplaceOrReplace<Events::CharacterNeedsDeinitialization>(entity);
+                    Util::Network::UnlinkSocketFromAccount(networkState, socketID, accountInfo.id);
+                    registry.destroy(accountEntity);
+                }
             }
         }
 
         // Handle 'SocketMessageEvent'
         {
-            moodycamel::ConcurrentQueue<Network::SocketMessageEvent>& messageEvents = networkState.server->GetMessageEvents();
+            moodycamel::ConcurrentQueue<Network::SocketMessageEvent>& messageEvents = networkState.server->GetMessageEvents(Network::DEFAULT_LANE_ID);
             Scripting::LuaManager* luaManager = ServiceLocator::GetLuaManager();
 
             auto key = Scripting::ZenithInfoKey::MakeGlobal(0, 0);
@@ -1901,26 +1941,29 @@ namespace ECS::Systems
                     continue;
 
                 Network::MessageHeader messageHeader;
-                if (networkState.gameMessageRouter->GetMessageHeader(messageEvent.message, messageHeader))
+                if (networkState.messageRouter->GetMessageHeader(messageEvent.message, messageHeader))
                 {
+                    entt::entity accountEntity;
+                    Util::Network::GetAccountEntity(networkState, messageEvent.socketID, accountEntity);
+
                     bool hasLuaHandlerForOpcode = zenith && Scripting::Util::Network::HasPacketHandler(zenith, messageHeader.opcode);
                     if (hasLuaHandlerForOpcode)
                     {
                         u32 messageReadOffset = static_cast<u32>(messageEvent.message.buffer->readData);
                         if (Scripting::Util::Network::CallPacketHandler(zenith, messageHeader, messageEvent.message))
                         {
-                            if (!networkState.gameMessageRouter->HasValidHandlerForHeader(messageHeader))
+                            if (!networkState.messageRouter->HasValidHandlerForHeader(messageHeader))
                                 continue;
                         
-                            if (networkState.gameMessageRouter->CallHandler(messageEvent.socketID, messageHeader, messageEvent.message))
+                            if (networkState.messageRouter->CallHandler(nullptr, accountEntity, messageEvent.socketID, messageHeader, messageEvent.message))
                                 continue;
                         }
                     }
                     else
                     {
-                        if (networkState.gameMessageRouter->HasValidHandlerForHeader(messageHeader))
+                        if (networkState.messageRouter->HasValidHandlerForHeader(messageHeader))
                         {
-                            if (networkState.gameMessageRouter->CallHandler(messageEvent.socketID, messageHeader, messageEvent.message))
+                            if (networkState.messageRouter->CallHandler(nullptr, accountEntity, messageEvent.socketID, messageHeader, messageEvent.message))
                                 continue;
                         }
                     }

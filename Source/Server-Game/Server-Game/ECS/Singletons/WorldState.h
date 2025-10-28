@@ -245,6 +245,11 @@ namespace ECS
         struct WorldState
         {
         public:
+            WorldState() : _socketIDToMapID(1024), _worldTransferRequests(1024)
+            {
+                _mapIDToWorld.reserve(8192);
+            }
+
             robin_hood::unordered_map<u32, World>::iterator begin()
             {
                 return _mapIDToWorld.begin();

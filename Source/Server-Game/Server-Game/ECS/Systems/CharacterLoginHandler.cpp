@@ -54,7 +54,7 @@ namespace ECS::Systems
             Network::SocketID socketID = request.socketID;
             u32 requestedCharacterNameHash = StringUtils::fnv1a_32(request.name.c_str(), request.name.length());
 
-            bool notConnectedToACharacter = !Util::Network::IsSocketLinkedToEntity(networkState, socketID);
+            bool notConnectedToACharacter = true;// !Util::Network::IsSocketLinkedToEntity(networkState, socketID);
             bool characterIsOffline = !Util::Cache::CharacterExistsByNameHash(gameCache, requestedCharacterNameHash);
 
             if (notConnectedToACharacter && characterIsOffline)

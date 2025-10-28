@@ -90,7 +90,7 @@ local function OnSpellHandleEffect(eventID : SpellEvent, data : SpellEventDataOn
     local effectIndex = data.effect:GetIndex()
     
     local procCallback = if data.procID then effectHandler.procDataIDToCallback[data.procID] else nil
-    if procCallback and not procCallback(eventID, data)then
+    if procCallback and not procCallback(eventID, data) then
         return
     end
 

@@ -33,7 +33,7 @@ namespace ECS
     {
         u32 AddHeader(std::shared_ptr<Bytebuffer>& buffer, ::Network::OpcodeType opcode, u16 size = 0);
         bool ValidatePacket(const std::shared_ptr<Bytebuffer>& buffer, u32 headerPos);
-        bool CreatePacket(std::shared_ptr<Bytebuffer>& buffer, ::Network::OpcodeType opcode, std::function<bool()>&& func = nullptr);
+        bool CreatePacket(std::shared_ptr<Bytebuffer>& buffer, ::Network::OpcodeType opcode, std::function<void()>&& func = nullptr);
         
         namespace Unit
         {

@@ -23,6 +23,7 @@ namespace Database
 
         bool CharacterGetInfoByID(std::shared_ptr<DBConnection>& dbConnection, u64 characterID, pqxx::result& result);
         bool CharacterGetInfoByName(std::shared_ptr<DBConnection>& dbConnection, const std::string& name, pqxx::result& result);
+        bool CharacterGetInfosByAccount(std::shared_ptr<DBConnection>& dbConnection, u64 accountID, pqxx::result& result);
         bool CharacterCreate(pqxx::work& transaction, const std::string& name, u16 raceGenderClass, u64& characterID);
         bool CharacterDelete(pqxx::work& transaction, u64 characterID);
         bool CharacterSetRaceGenderClass(pqxx::work& transaction, u64 characterID, u16 raceGenderClass);

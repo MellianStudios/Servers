@@ -4,6 +4,7 @@
 #include "Server-Game/Util/ServiceLocator.h"
 
 #include <Server-Common/Database/DBController.h>
+#include <Server-Common/Database/Util/AccountUtils.h>
 #include <Server-Common/Database/Util/CharacterUtils.h>
 #include <Server-Common/Database/Util/CreatureUtils.h>
 #include <Server-Common/Database/Util/CurrencyUtils.h>
@@ -70,6 +71,7 @@ namespace ECS::Systems
 
         // Load Character Tables
         {
+            Database::Util::Account::Loading::InitAccountTablesPreparedStatements(characterConnection);
             Database::Util::Map::Loading::InitMapTablesPreparedStatements(characterConnection);
             Database::Util::Permission::Loading::InitPermissionTablesPreparedStatements(characterConnection);
             Database::Util::Currency::Loading::InitCurrencyTablesPreparedStatements(characterConnection);

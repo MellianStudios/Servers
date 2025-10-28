@@ -18,6 +18,7 @@ namespace Database::Util::Character
             {
                 dbConnection->connection->prepare("CharacterGetInfoByID", "SELECT * FROM public.characters WHERE id = $1");
                 dbConnection->connection->prepare("CharacterGetInfoByName", "SELECT * FROM public.characters WHERE name = $1");
+                dbConnection->connection->prepare("CharacterGetInfosByAccount", "SELECT * FROM public.characters WHERE account_id = $1 ORDER BY id ASC");
                 dbConnection->connection->prepare("CharacterCreate", "INSERT INTO public.characters (name, race_gender_class) VALUES ($1, $2) RETURNING id");
                 dbConnection->connection->prepare("CharacterDelete", "DELETE FROM public.characters WHERE id = $1");
                 dbConnection->connection->prepare("CharacterSetRaceGenderClass", "UPDATE public.characters SET race_gender_class = $2 WHERE id = $1");
@@ -183,6 +184,24 @@ namespace Database::Util::Character
         {
             pqxx::nontransaction nonTransaction = dbConnection->NewNonTransaction();
             result = nonTransaction.exec(pqxx::prepped("CharacterGetInfoByName"), pqxx::params{ name });
+            if (result.empty())
+                return false;
+
+            return true;
+        }
+        catch (const pqxx::sql_error& e)
+        {
+            NC_LOG_WARNING("{0}", e.what());
+            return false;
+        }
+    }
+
+    bool CharacterGetInfosByAccount(std::shared_ptr<DBConnection>& dbConnection, u64 accountID, pqxx::result& result)
+    {
+        try
+        {
+            pqxx::nontransaction nonTransaction = dbConnection->NewNonTransaction();
+            result = nonTransaction.exec(pqxx::prepped("CharacterGetInfosByAccount"), pqxx::params{ accountID });
             if (result.empty())
                 return false;
 

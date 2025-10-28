@@ -22,6 +22,18 @@ namespace ECS::Util::Network
         return isRequestedToClose;
     }
 
+    bool IsAccountLinkedToSocket(::ECS::Singletons::NetworkState& networkState, u64 accountID)
+    {
+        bool isLinked = networkState.accountIDToSocketID.contains(accountID);
+        return isLinked;
+    }
+
+    bool IsAccountLinkedToEntity(::ECS::Singletons::NetworkState& networkState, u64 accountID)
+    {
+        bool isLinked = networkState.accountIDToEntity.contains(accountID);
+        return isLinked;
+    }
+
     bool IsCharacterLinkedToSocket(::ECS::Singletons::NetworkState& networkState, u64 characterID)
     {
         bool isLinked = networkState.characterIDToSocketID.contains(characterID);
@@ -34,40 +46,84 @@ namespace ECS::Util::Network
         return isLinked;
     }
 
-    bool IsSocketLinkedToEntity(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID)
+    bool IsSocketLinkedToAccountEntity(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID)
     {
-        bool isLinked = networkState.socketIDToEntity.contains(socketID);
+        bool isLinked = networkState.socketIDToAccountEntity.contains(socketID);
         return isLinked;
     }
 
+    bool IsSocketLinkedToCharacterEntity(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID)
+    {
+        bool isLinked = networkState.socketIDToCharacterEntity.contains(socketID);
+        return isLinked;
+    }
+
+    bool GetSocketIDFromAccountID(::ECS::Singletons::NetworkState& networkState, u64 accountID, ::Network::SocketID& socketID)
+    {
+        socketID = ::Network::SOCKET_ID_INVALID;
+
+        auto it = networkState.accountIDToSocketID.find(accountID);
+        if (it == networkState.accountIDToSocketID.end())
+            return false;
+
+        socketID = it->second;
+        return true;
+    }
     bool GetSocketIDFromCharacterID(::ECS::Singletons::NetworkState& networkState, u64 characterID, ::Network::SocketID& socketID)
     {
         socketID = ::Network::SOCKET_ID_INVALID;
 
-        if (!IsCharacterLinkedToSocket(networkState, characterID))
+        auto it = networkState.characterIDToSocketID.find(characterID);
+        if (it == networkState.characterIDToSocketID.end())
             return false;
 
-        socketID = networkState.characterIDToSocketID[characterID];
+        socketID = it->second;
         return true;
     }
-    bool GetEntityIDFromCharacterID(::ECS::Singletons::NetworkState& networkState, u64 characterID, entt::entity& entity)
+
+    bool GetAccountEntity(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID, entt::entity& entity)
     {
         entity = entt::null;
 
-        if (!IsCharacterLinkedToEntity(networkState, characterID))
+        auto it = networkState.socketIDToAccountEntity.find(socketID);
+        if (it == networkState.socketIDToAccountEntity.end())
             return false;
 
-        entity = networkState.characterIDToEntity[characterID];
+        entity = it->second;
         return true;
     }
-    bool GetEntityIDFromSocketID(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID, entt::entity& entity)
+    bool GetAccountEntity(::ECS::Singletons::NetworkState& networkState, u64 accountID, entt::entity& entity)
     {
         entity = entt::null;
 
-        if (!IsSocketLinkedToEntity(networkState, socketID))
+        auto it = networkState.accountIDToEntity.find(accountID);
+        if (it == networkState.accountIDToEntity.end())
             return false;
 
-        entity = networkState.socketIDToEntity[socketID];
+        entity = it->second;
+        return true;
+    }
+
+    bool GetCharacterEntity(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID, entt::entity& entity)
+    {
+        entity = entt::null;
+
+        auto it = networkState.socketIDToCharacterEntity.find(socketID);
+        if (it == networkState.socketIDToCharacterEntity.end())
+            return false;
+
+        entity = it->second;
+        return true;
+    }
+    bool GetCharacterEntity(::ECS::Singletons::NetworkState& networkState, u64 characterID, entt::entity& entity)
+    {
+        entity = entt::null;
+
+        auto it = networkState.characterIDToEntity.find(characterID);
+        if (it == networkState.characterIDToEntity.end())
+            return false;
+
+        entity = it->second;
         return true;
     }
 
@@ -101,29 +157,31 @@ namespace ECS::Util::Network
         networkState.server->CloseSocketID(socketID);
         return true;
     }
-    bool UnlinkSocketFromEntity(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID)
-    {
-        if (!IsSocketLinkedToEntity(networkState, socketID))
-            return false;
 
-        networkState.socketIDToEntity.erase(socketID);
-        return true;
+    void LinkSocketToAccount(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID, u64 accountID, entt::entity accountEntity)
+    {
+        networkState.socketIDToAccountEntity[socketID] = accountEntity;
+        networkState.accountIDToEntity[accountID] = accountEntity;
+        networkState.accountIDToSocketID[accountID] = socketID;
     }
-    bool UnlinkCharacterFromSocket(::ECS::Singletons::NetworkState& networkState, u64 characterID)
+    void LinkSocketToCharacter(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID, u64 characterID, entt::entity characterEntity)
     {
-        if (!IsCharacterLinkedToSocket(networkState, characterID))
-            return false;
-
+        networkState.socketIDToCharacterEntity[socketID] = characterEntity;
+        networkState.characterIDToEntity[characterID] = characterEntity;
+        networkState.characterIDToSocketID[characterID] = socketID;
+    }
+    void UnlinkSocketFromAccount(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID, u64 accountID)
+    {
+        networkState.socketIDToAccountEntity.erase(socketID);
+        networkState.socketIDToSessionKeys.erase(socketID);
+        networkState.accountIDToEntity.erase(accountID);
+        networkState.accountIDToSocketID.erase(accountID);
+    }
+    void UnlinkSocketFromCharacter(::ECS::Singletons::NetworkState& networkState, ::Network::SocketID socketID, u64 characterID)
+    {
+        networkState.socketIDToCharacterEntity.erase(socketID);
         networkState.characterIDToSocketID.erase(characterID);
-        return true;
-    }
-    bool UnlinkCharacterFromEntity(::ECS::Singletons::NetworkState& networkState, u64 characterID)
-    {
-        if (!IsCharacterLinkedToEntity(networkState, characterID))
-            return false;
-
         networkState.characterIDToEntity.erase(characterID);
-        return true;
     }
     bool SendPacket(Singletons::NetworkState& networkState, ::Network::SocketID socketID, std::shared_ptr<Bytebuffer>& buffer)
     {

@@ -27,6 +27,9 @@ namespace ECS
 
         private:
             static bool HandleMapInitialization(World& world, Singletons::TimeState& timeState, Singletons::GameCache& gameCache);
+
+            static void HandleNetworkMessages(World& world, Scripting::Zenith* zenith, Singletons::TimeState& timeState, Singletons::GameCache& gameCache, Singletons::NetworkState& networkState);
+
             static void HandleCreatureDeinitialization(World& world, Scripting::Zenith* zenith, Singletons::TimeState& timeState, Singletons::GameCache& gameCache);
             static void HandleCreatureInitialization(World& world, Scripting::Zenith* zenith, Singletons::TimeState& timeState, Singletons::GameCache& gameCache);
             static void HandleCreatureUpdate(World& world, Scripting::Zenith* zenith, Singletons::TimeState& timeState, Singletons::GameCache& gameCache, Singletons::NetworkState& networkState);
