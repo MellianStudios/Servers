@@ -3,6 +3,7 @@
 
 #include <Base/Container/ConcurrentQueue.h>
 #include <Base/Math/Math.h>
+#include <Base/Util/DebugHandler.h>
 
 #include <Gameplay/GameDefine.h>
 
@@ -12,6 +13,8 @@
 
 #include <memory>
 
+#include <Detour/DetourNavMesh.h>
+#include <Detour/DetourNavMeshQuery.h>
 #include <entt/entt.hpp>
 #include <robinhood/robinhood.h>
 #include <RTree/RTree.h>
@@ -79,6 +82,80 @@ namespace ECS
     private:
         RTree<ObjectGUID, f32, 2>* _visTree;
         robin_hood::unordered_map<ObjectGUID, entt::entity> _guidToEntity;
+    };
+    struct WorldNavmeshData
+    {
+    public:
+        bool Initialize(const dtNavMeshParams& params)
+        {
+            Cleanup();
+
+            _navMesh = dtAllocNavMesh();
+            if (!_navMesh)
+                return false;
+
+            if (dtStatusFailed(_navMesh->init(&params)))
+            {
+                dtFreeNavMesh(_navMesh);
+                _navMesh = nullptr;
+                return false;
+            }
+
+            _navQuery = dtAllocNavMeshQuery();
+            if (!_navQuery)
+            {
+                dtFreeNavMesh(_navMesh);
+                _navMesh = nullptr;
+                return false;
+            }
+
+            if (dtStatusFailed(_navQuery->init(_navMesh, 8192)))
+            {
+                dtFreeNavMeshQuery(_navQuery);
+                dtFreeNavMesh(_navMesh);
+                _navMesh = nullptr;
+                _navQuery = nullptr;
+                return false;
+            }
+
+            return true;
+        }
+        void Cleanup()
+        {
+            if (_navQuery)
+            {
+                dtFreeNavMeshQuery(_navQuery);
+                _navQuery = nullptr;
+            }
+
+            if (_navMesh)
+            {
+                dtFreeNavMesh(_navMesh);
+                _navMesh = nullptr;
+            }
+        }
+
+        bool AddTile(u8* navData, u32 navDataSize)
+        {
+            if (!_navMesh)
+                return false;
+
+            dtTileRef tileRef = 0;
+            dtStatus status = _navMesh->addTile(navData, navDataSize, DT_TILE_FREE_DATA, 0, &tileRef);
+            return dtStatusSucceed(status);
+        }
+        dtNavMesh* GetNavMesh() const
+        {
+            return _navMesh;
+        }
+        dtNavMeshQuery* GetQuery() const
+        {
+            return _navQuery;
+        }
+
+    private:
+        dtNavMesh* _navMesh = nullptr;
+        dtNavMeshQuery* _navQuery = nullptr;
     };
     struct World
     {
@@ -221,6 +298,7 @@ namespace ECS
         Math::Xoroshiro128PP rng;
         WorldVisData playerVisData;
         WorldVisData creatureVisData;
+        WorldNavmeshData navmeshData;
 
     private:
         robin_hood::unordered_map<ObjectGUID::Type, WorldVisData*> _typeToVisData;
@@ -284,6 +362,22 @@ namespace ECS
                 world.mapID = mapID;
 
                 world.EmplaceSingleton<Events::MapNeedsInitialization>();
+
+                dtNavMeshParams params{};
+                params.orig[0] = 0.0f;
+                params.orig[1] = 0.0f;
+                params.orig[2] = 0.0f;
+
+                params.tileWidth = 533.333f;
+                params.tileHeight = 533.333f;
+
+                params.maxTiles = 1024;
+                params.maxPolys = 4096;
+
+                if (!world.navmeshData.Initialize(params))
+                {
+                    NC_LOG_ERROR("Failed to initialize NavMesh Data for map {}", mapID);
+                }
 
                 return true;
             }

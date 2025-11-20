@@ -9,6 +9,9 @@
 #include "Server-Game/ECS/Components/UnitVisualItems.h"
 #include "Server-Game/ECS/Util/Network/NetworkUtil.h"
 
+#include <Gameplay/ECS/Components/ObjectFields.h>
+#include <Gameplay/ECS/Components/UnitFields.h>
+
 #include <Meta/Generated/Shared/CombatLogEnum.h>
 #include <Meta/Generated/Shared/NetworkPacket.h>
 
@@ -84,15 +87,10 @@ namespace ECS::Util::MessageBuilder
             auto& unitPowersComponent = registry.get<Components::UnitPowersComponent>(entity);
             auto& displayInfo = registry.get<Components::DisplayInfo>(entity);
             auto& visualItems = registry.get<Components::UnitVisualItems>(entity);
+            auto& objectFields = registry.get<Components::ObjectFields>(entity);
+            auto& unitFields = registry.get<Components::UnitFields>(entity);
 
             bool failed = false;
-
-            failed |= !Util::Network::AppendPacketToBuffer(buffer, Generated::UnitDisplayInfoUpdatePacket{
-                .guid = guid,
-                .displayID = displayInfo.displayID,
-                .race = static_cast<u8>(displayInfo.unitRace),
-                .gender = static_cast<u8>(displayInfo.unitGender)
-            });
 
             u32 numEquippedItems = static_cast<u32>(Generated::ItemEquipSlotEnum::EquipmentEnd) + 1;
             for (u32 i = 0; i < numEquippedItems; i++)
@@ -132,6 +130,20 @@ namespace ECS::Util::MessageBuilder
                     .stacks = auraInfo.stacks
                 });
             }
+
+            auto objectGUID = objectFields.fields.GetField<ObjectGUID>(Generated::ObjectNetFieldsEnum::ObjectGUIDLow);
+
+            failed |= !Util::MessageBuilder::CreatePacket(buffer, (::Network::OpcodeType)Generated::PacketListEnum::ServerObjectNetFieldUpdate, [&buffer, &objectFields, objectGUID]()
+            {
+                buffer->Serialize(objectGUID);
+                objectFields.fields.SerializeSetFields(buffer.get());
+            });
+
+            failed |= !Util::MessageBuilder::CreatePacket(buffer, (::Network::OpcodeType)Generated::PacketListEnum::ServerUnitNetFieldUpdate, [&buffer, &unitFields, objectGUID]()
+            {
+                buffer->Serialize(objectGUID);
+                unitFields.fields.SerializeSetFields(buffer.get());
+            });
 
             return !failed;
         }

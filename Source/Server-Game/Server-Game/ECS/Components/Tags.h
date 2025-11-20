@@ -17,6 +17,7 @@ namespace ECS::Tags
     struct IsActiveAura {};
     struct IsPeriodicAura {};
     struct CharacterWasWorldTransferred {};
+    struct UnitIsFollowing {};
     struct ProximityTriggerIsServerSideOnly {};
     struct ProximityTriggerIsClientSide {};
     struct ProximityTriggerHasEnteredPlayers {};

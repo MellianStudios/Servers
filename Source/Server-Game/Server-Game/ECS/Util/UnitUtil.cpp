@@ -19,6 +19,8 @@
 #include "Server-Game/ECS/Singletons/WorldState.h"
 #include "Server-Game/ECS/Util/Cache/CacheUtil.h"
 
+#include <Gameplay/ECS/Components/UnitFields.h>
+
 #include <Meta/Generated/Shared/NetworkPacket.h>
 
 #include <entt/entt.hpp>
@@ -81,37 +83,94 @@ namespace ECS::Util::Unit
 
         return displayID;
     }
-    void UpdateDisplayID(entt::registry& registry, entt::entity entity, Components::DisplayInfo& displayInfo, u32 displayID, bool forceDirty)
+    void UpdateDisplayID(entt::registry& registry, entt::entity entity, Components::UnitFields& unitFields, u32 displayID, bool forceDirty)
     {
         // If the displayID is the same, we don't need to update it
-        forceDirty = forceDirty && displayInfo.displayID != displayID;
-        displayInfo.displayID = displayID;
-
-        if (forceDirty)
-            registry.emplace_or_replace<Events::CharacterNeedsDisplayUpdate>(entity);
+        u32 currentDisplayID = unitFields.fields.GetField<u32>(Generated::UnitNetFieldsEnum::DisplayID);
+        if (currentDisplayID == displayID)
+            return;
+        
+        unitFields.fields.SetField(Generated::UnitNetFieldsEnum::DisplayID, displayID);
+        registry.emplace_or_replace<Events::ObjectNeedsNetFieldUpdate>(entity);
     }
-    void UpdateDisplayRaceGender(entt::registry& registry, entt::entity entity, Components::DisplayInfo& displayInfo, GameDefine::UnitRace race, GameDefine::UnitGender gender, bool forceDirty)
+    void UpdateDisplayRaceGender(entt::registry& registry, entt::entity entity, Components::UnitFields& unitFields, GameDefine::UnitRace race, GameDefine::UnitGender gender, bool forceDirty)
     {
-        displayInfo.unitRace = race;
-        displayInfo.unitGender = gender;
+        constexpr u8 GenderBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitOffset;
+        constexpr u8 RaceBitSize = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitSize;
+        constexpr u8 GenderBitSize = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitSize;
+        constexpr u8 RaceGenderBytesOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceByteOffset;
+        constexpr u8 RaceGenderBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitOffset;
+        constexpr u8 RaceGenderBitSize = RaceBitSize + GenderBitSize;
+
+        auto currentRaceGenderPacked = unitFields.fields.GetField<u16>(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, RaceGenderBytesOffset, RaceGenderBitOffset, RaceGenderBitSize);
+        u16 newRaceGenderPacked = static_cast<u16>(race) | static_cast<u16>(gender) << GenderBitOffset;
+
+        if (currentRaceGenderPacked == newRaceGenderPacked)
+            return;
+
+        unitFields.fields.SetField(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, newRaceGenderPacked, RaceGenderBytesOffset, RaceGenderBitOffset, RaceGenderBitSize);
+        registry.emplace_or_replace<Events::ObjectNeedsNetFieldUpdate>(entity);
 
         u32 displayID = GetDisplayIDFromRaceGender(race, gender);
-        UpdateDisplayID(registry, entity, displayInfo, displayID, forceDirty);
+        UpdateDisplayID(registry, entity, unitFields, displayID, forceDirty);
     }
-    void UpdateDisplayRace(entt::registry& registry, entt::entity entity, Components::DisplayInfo& displayInfo, GameDefine::UnitRace race, bool forceDirty)
+    void UpdateDisplayRace(entt::registry& registry, entt::entity entity, Components::UnitFields& unitFields, GameDefine::UnitRace race, bool forceDirty)
     {
-        UpdateDisplayRaceGender(registry, entity, displayInfo, race, displayInfo.unitGender, forceDirty);
+        constexpr u8 RaceByteOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceByteOffset;
+        constexpr u8 RaceBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitOffset;
+        constexpr u8 RaceBitSize = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitSize;
+        constexpr u8 GenderBytesOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::GenderByteOffset;
+        constexpr u8 GenderBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitOffset;
+        constexpr u8 GenderBitSize = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitSize;
+        constexpr u8 GenderBitMask = (1 << GenderBitSize) - 1;
+        constexpr u8 RaceGenderBytesOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceByteOffset;
+        constexpr u8 RaceGenderBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitOffset;
+        constexpr u8 RaceGenderBitSize = RaceBitSize + GenderBitSize;
+
+        auto packedRaceGender = unitFields.fields.GetField<u16>(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, RaceGenderBytesOffset, RaceGenderBitOffset, RaceGenderBitSize);
+        auto currentRace = static_cast<GameDefine::UnitRace>(packedRaceGender & RaceBitSize);
+
+        if (currentRace == race)
+            return;
+
+        auto currentGender = static_cast<GameDefine::UnitGender>((packedRaceGender >> GenderBitOffset) & GenderBitMask);
+        unitFields.fields.SetField(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, race, RaceByteOffset, RaceBitOffset, RaceBitSize);
+        registry.emplace_or_replace<Events::ObjectNeedsNetFieldUpdate>(entity);
+
+        u32 displayID = GetDisplayIDFromRaceGender(race, currentGender);
+        UpdateDisplayID(registry, entity, unitFields, displayID, forceDirty);
     }
-    void UpdateDisplayGender(entt::registry& registry, entt::entity entity, Components::DisplayInfo& displayInfo, GameDefine::UnitGender gender, bool forceDirty)
+    void UpdateDisplayGender(entt::registry& registry, entt::entity entity, Components::UnitFields& unitFields, GameDefine::UnitGender gender, bool forceDirty)
     {
-        UpdateDisplayRaceGender(registry, entity, displayInfo, displayInfo.unitRace, gender, forceDirty);
+        constexpr u8 RaceBitSize = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitSize;
+        constexpr u8 GenderBytesOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::GenderByteOffset;
+        constexpr u8 GenderBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitOffset;
+        constexpr u8 GenderBitSize = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitSize;
+        constexpr u8 GenderBitMask = (1 << GenderBitSize) - 1;
+        constexpr u8 RaceGenderBytesOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceByteOffset;
+        constexpr u8 RaceGenderBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitOffset;
+        constexpr u8 RaceGenderBitSize = RaceBitSize + GenderBitSize;
+
+        auto packedRaceGender = unitFields.fields.GetField<u16>(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, RaceGenderBytesOffset, RaceGenderBitOffset, RaceGenderBitSize);
+        auto currentGender = static_cast<GameDefine::UnitGender>((packedRaceGender >> GenderBitOffset) & GenderBitMask);
+
+        if (currentGender == gender)
+            return;
+
+        auto currentRace = static_cast<GameDefine::UnitRace>(packedRaceGender & RaceBitSize);
+
+        unitFields.fields.SetField(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, gender, GenderBytesOffset, GenderBitOffset, GenderBitSize);
+        registry.emplace_or_replace<Events::ObjectNeedsNetFieldUpdate>(entity);
+
+        u32 displayID = GetDisplayIDFromRaceGender(currentRace, currentGender);
+        UpdateDisplayID(registry, entity, unitFields, displayID, forceDirty);
     }
 
     ECS::Components::UnitPowersComponent& AddPowersComponent(World& world, entt::entity entity, GameDefine::UnitClass unitClass)
     {
         auto& unitPowersComponent = world.Emplace<Components::UnitPowersComponent>(entity);
 
-        AddPower(world, entity, unitPowersComponent, Generated::PowerTypeEnum::Health, 100.0, 50.0, 100.0);
+        AddPower(world, entity, unitPowersComponent, Generated::PowerTypeEnum::Health, 100.0, 100.0, 100.0);
 
         switch (unitClass)
         {

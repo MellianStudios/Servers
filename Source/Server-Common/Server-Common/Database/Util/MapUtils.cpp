@@ -19,7 +19,7 @@ namespace Database::Util::Map
                 dbConnection->connection->prepare("MapLocationCreate", "INSERT INTO public.map_locations (name, map_id, position_x, position_y, position_z, position_o) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id");
                 dbConnection->connection->prepare("MapLocationDelete", "DELETE FROM public.map_locations WHERE id = $1");
 
-                dbConnection->connection->prepare("SetMap", "INSERT INTO public.maps (id, flags, name, type, max_players) VALUES ($1, $2, $3, $4, $5) ON CONFLICT(id) DO UPDATE SET id = EXCLUDED.id, flags = EXCLUDED.flags, name = EXCLUDED.name, type = EXCLUDED.type, max_players = EXCLUDED.max_players");
+                dbConnection->connection->prepare("SetMap", "INSERT INTO public.maps (id, flags, internal_name, name, type, max_players) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT(id) DO UPDATE SET id = EXCLUDED.id, flags = EXCLUDED.flags, internal_name = EXCLUDED.internal_name, name = EXCLUDED.name, type = EXCLUDED.type, max_players = EXCLUDED.max_players");
                 dbConnection->connection->prepare("SetMapLocation", "INSERT INTO public.map_locations (id, name, map_id, position_x, position_y, position_z, position_o) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT(id) DO UPDATE SET id = EXCLUDED.id, name = EXCLUDED.name, map_id = EXCLUDED.map_id, position_x = EXCLUDED.position_x, position_y = EXCLUDED.position_y, position_z = EXCLUDED.position_z, position_o = EXCLUDED.position_o");
 
                 NC_LOG_INFO("Loaded Prepared Statements Map Tables\n");
@@ -61,13 +61,14 @@ namespace Database::Util::Map
 
             mapTables.idToDefinition.reserve(numRows);
 
-            nonTransaction.for_stream("SELECT * FROM public.maps", [&mapTables](u32 id, u32 flags, const std::string& name, u16 type, u16 maxPlayers)
+            nonTransaction.for_stream("SELECT * FROM public.maps", [&mapTables](u32 id, u32 flags, const std::string& internalName, const std::string& name, u16 type, u16 maxPlayers)
             {
                 auto& templateData = mapTables.idToDefinition[id];
 
                 templateData.id = id;
                 templateData.flags = flags;
 
+                templateData.internalName = internalName;
                 templateData.name = name;
 
                 templateData.type = type;

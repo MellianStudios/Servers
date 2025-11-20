@@ -66,10 +66,10 @@ namespace ECS::Util::Combat
         if (setInCombat)
         {
             if (!world.AllOf<Tags::IsInCombat>(creatureEntity))
-                world.EmplaceOrReplace<Events::UnitEnterCombat>(creatureEntity);
+                world.EmplaceOrReplace<Events::UnitEnterCombat>(creatureEntity, targetEntity);
 
             if (!world.AllOf<Tags::IsInCombat>(targetEntity))
-                world.EmplaceOrReplace<Events::UnitEnterCombat>(targetEntity);
+                world.EmplaceOrReplace<Events::UnitEnterCombat>(targetEntity, creatureEntity);
         }
 
         return true;

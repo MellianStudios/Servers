@@ -23,17 +23,23 @@
 #include "Server-Game/ECS/Singletons/NetworkState.h"
 #include "Server-Game/ECS/Singletons/WorldState.h"
 #include "Server-Game/ECS/Util/MessageBuilderUtil.h"
+#include "Server-Game/ECS/Util/NetFieldsUtil.h"
 #include "Server-Game/ECS/Util/UnitUtil.h"
 #include "Server-Game/ECS/Util/Cache/CacheUtil.h"
 #include "Server-Game/ECS/Util/Network/NetworkUtil.h"
 #include "Server-Game/ECS/Util/Persistence/CharacterUtil.h"
 
+#include <Server-Common/Database/DBController.h>
+#include <Server-Common/Database/Util/CharacterUtils.h>
+
+#include <Gameplay/ECS/Components/Events.h>
+#include <Gameplay/ECS/Components/ObjectFields.h>
+#include <Gameplay/ECS/Components/UnitFields.h>
+
 #include <Meta/Generated/Server/LuaEvent.h>
 #include <Meta/Generated/Shared/NetworkPacket.h>
 
 #include <Scripting/Zenith.h>
-#include <Server-Common/Database/DBController.h>
-#include <Server-Common/Database/Util/CharacterUtils.h>
 
 namespace ECS::Systems
 {
@@ -177,7 +183,6 @@ namespace ECS::Systems
             auto unitClass = static_cast<GameDefine::UnitClass>((raceGenderClass >> 9) & 0x7F);
 
             characterInfo.unitClass = unitClass;
-            Util::Unit::UpdateDisplayRaceGender(*world.registry, entity, displayInfo, unitRace, unitGender);
 
             Util::Unit::AddPowersComponent(world, entity, unitClass);
             auto& unitResistancesComponent = Util::Unit::AddResistancesComponent(world, entity);
@@ -195,6 +200,19 @@ namespace ECS::Systems
             characterSpellCastInfo.queuedSpellEntity = entt::null;
 
             auto& playerContainers = world.Emplace<Components::PlayerContainers>(entity);
+
+            auto& objectFields = world.Emplace<Components::ObjectFields>(entity);
+            objectFields.fields.SetField(Generated::ObjectNetFieldsEnum::ObjectGUIDLow, objectInfo.guid);
+            objectFields.fields.SetField(Generated::ObjectNetFieldsEnum::Scale, 1.0f);
+
+            auto& unitFields = world.Emplace<Components::UnitFields>(entity);
+
+            constexpr u8 unitClassBytesOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::ClassByteOffset;
+            constexpr u8 unitClassBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::ClassBitOffset;
+            constexpr u8 unitClassBitSize = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::ClassBitSize;
+            unitFields.fields.SetField(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, characterInfo.level);
+            unitFields.fields.SetField(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, characterInfo.unitClass, unitClassBytesOffset, unitClassBitOffset, unitClassBitSize);
+            Util::Unit::UpdateDisplayRaceGender(*world.registry, entity, unitFields, unitRace, unitGender);
 
             buffer->Reset();
             bool failed = false;
@@ -251,7 +269,7 @@ namespace ECS::Systems
                             .itemID = itemInstance->itemID,
                             .count = itemInstance->count,
                             .durability = itemInstance->durability
-                            });
+                        });
                     });
 
                     for (ItemEquipSlot_t bagIndex = PLAYER_BAG_INDEX_START; bagIndex <= PLAYER_BAG_INDEX_END; bagIndex++)
@@ -285,7 +303,7 @@ namespace ECS::Systems
                                     .itemID = itemInstance->itemID,
                                     .count = itemInstance->count,
                                     .durability = itemInstance->durability
-                                    });
+                                });
                             });
                         }
                     }
@@ -375,13 +393,10 @@ namespace ECS::Systems
             }
         });
 
-        std::shared_ptr<Bytebuffer> buffer = Bytebuffer::Borrow<512>();
-
         auto recalculateStatsView = world.View<Components::CharacterInfo, Components::PlayerContainers, Components::UnitPowersComponent, Components::UnitStatsComponent, Events::CharacterNeedsRecalculateStatsUpdate>();
         recalculateStatsView.each([&](entt::entity entity, Components::CharacterInfo& characterInfo, Components::PlayerContainers& playerContainers, Components::UnitPowersComponent& unitPowersComponent, Components::UnitStatsComponent& unitStatsComponent)
         {
-            buffer->Reset();
-
+            std::shared_ptr<Bytebuffer> buffer = Bytebuffer::Borrow<512>();
             // Default stats back to base
             for (auto& pair : unitStatsComponent.statTypeToValue)
             {

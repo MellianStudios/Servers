@@ -22,6 +22,7 @@
 #include "Server-Game/ECS/Components/TargetInfo.h"
 #include "Server-Game/ECS/Components/UnitAuraInfo.h"
 #include "Server-Game/ECS/Components/UnitCombatInfo.h"
+#include "Server-Game/ECS/Components/UnitFollowPath.h"
 #include "Server-Game/ECS/Components/UnitPowersComponent.h"
 #include "Server-Game/ECS/Components/UnitResistancesComponent.h"
 #include "Server-Game/ECS/Components/UnitSpellCooldownHistory.h"
@@ -52,9 +53,14 @@
 #include <Server-Common/Database/Util/CreatureUtils.h>
 #include <Server-Common/Database/Util/ProximityTriggerUtils.h>
 
+#include <Base/Memory/FileReader.h>
 #include <Base/Util/DebugHandler.h>
 #include <Base/Util/StringUtils.h>
 
+#include <FileFormat/Shared.h>
+
+#include <Gameplay/ECS/Components/ObjectFields.h>
+#include <Gameplay/ECS/Components/UnitFields.h>
 #include <Gameplay/Network/GameMessageRouter.h>
 
 #include <Meta/Generated/Server/LuaEvent.h>
@@ -70,6 +76,9 @@
 #include <libsodium/sodium.h>
 #include <spake2-ee/crypto_spake.h>
 
+#include <filesystem>
+namespace fs = std::filesystem;
+
 namespace ECS::Systems
 {
     void UpdateWorld::Init(entt::registry& registry)
@@ -80,6 +89,12 @@ namespace ECS::Systems
     bool UpdateWorld::HandleMapInitialization(World& world, Singletons::TimeState& timeState, Singletons::GameCache& gameCache)
     {
         if (!world.ContainsSingleton<Events::MapNeedsInitialization>())
+            return false;
+
+        world.EraseSingleton<Events::MapNeedsInitialization>();
+
+        GameDefine::Database::Map* map;
+        if (!Util::Cache::GetMapByID(gameCache, world.mapID, map))
             return false;
 
         // Seed RNG
@@ -180,7 +195,51 @@ namespace ECS::Systems
         //    world.AddEntity(objectInfo.guid, entity, vec2(transform.position.x, transform.position.z));
         //}
         
-        world.EraseSingleton<Events::MapNeedsInitialization>();
+        // Load Navmesh
+        {
+            WorldNavmeshData& navmeshData = world.navmeshData;
+
+            static const fs::path fileExtension = ".nav";
+            fs::path relativeParentPath = "Data/NavMesh/" + map->internalName;
+            fs::path absolutePath = std::filesystem::absolute(relativeParentPath).make_preferred();
+            fs::create_directories(absolutePath);
+            
+            // Note : This is used because it is more performant than doing fs::relative by up to 3x on 140k textures
+            std::string absolutePathStr = absolutePath.string();
+            size_t subStrIndex = absolutePathStr.length() + 1; // + 1 here for folder seperator
+            
+            std::vector<std::filesystem::path> paths;
+            std::filesystem::recursive_directory_iterator dirpos{ absolutePath };
+            std::copy(begin(dirpos), end(dirpos), std::back_inserter(paths));
+            
+            u32 numPaths = static_cast<u32>(paths.size());
+            
+            for (u32 i = 0; i < numPaths; i++)
+            {
+                fs::path& path = paths[i];
+            
+                if (!path.has_extension() || path.extension().compare(fileExtension) != 0)
+                    continue;
+
+                std::string pathStr = path.string();
+
+                FileReader fileReader(pathStr);
+                if (!fileReader.Open())
+                    continue;
+
+                u32 navmeshDataLength = static_cast<u32>(fileReader.Length());
+
+                u8* navData = new u8[navmeshDataLength];
+                Bytebuffer navmeshData = Bytebuffer(navData, navmeshDataLength);
+                fileReader.Read(&navmeshData, navmeshDataLength);
+
+                if (!world.navmeshData.AddTile(navmeshData.GetDataPointer(), navmeshDataLength))
+                {
+                    NC_LOG_ERROR("Failed to load navmesh for {0}", pathStr);
+                }
+            };
+        }
+
         return true;
     }
 
@@ -292,6 +351,19 @@ namespace ECS::Systems
             creatureTransform.pitchYaw = vec2(0.0f, event.orientation);
             creatureTransform.scale = event.scale;
 
+            auto& objectFields = world.Emplace<Components::ObjectFields>(entity);
+            objectFields.fields.SetField(Generated::ObjectNetFieldsEnum::ObjectGUIDLow, objectInfo.guid);
+            objectFields.fields.SetField(Generated::ObjectNetFieldsEnum::Scale, 1.0f);
+
+            auto& unitFields = world.Emplace<Components::UnitFields>(entity);
+
+            constexpr u8 unitClassBytesOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::ClassByteOffset;
+            constexpr u8 unitClassBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::ClassBitOffset;
+            constexpr u8 unitClassBitSize = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::ClassBitSize;
+            unitFields.fields.SetField(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, 1);
+            unitFields.fields.SetField(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, GameDefine::UnitClass::Warrior, unitClassBytesOffset, unitClassBitOffset, unitClassBitSize);
+            Util::Unit::UpdateDisplayID(*world.registry, entity, unitFields, creatureTemplate->displayID);
+
             auto& visualItems = world.Emplace<Components::UnitVisualItems>(entity);
             auto& displayInfo = world.Emplace<Components::DisplayInfo>(entity);
             displayInfo.displayID = creatureTemplate->displayID;
@@ -331,6 +403,9 @@ namespace ECS::Systems
                     .scriptName = event.scriptName
                 });
             }
+
+            auto& unitFollowPath = world.Emplace<Components::UnitFollowPath>(entity);
+            unitFollowPath.target = entt::null;
 
             world.AddEntity(objectInfo.guid, entity, vec2(creatureTransform.position.x, creatureTransform.position.z));
         });
@@ -436,6 +511,43 @@ namespace ECS::Systems
             }
         });
         world.Clear<Events::UnitResurrected>();
+
+        auto netFieldUpdateView = world.View<Components::ObjectFields, Components::UnitFields, Components::VisibilityInfo, Events::ObjectNeedsNetFieldUpdate>();
+        netFieldUpdateView.each([&](entt::entity entity, Components::ObjectFields& objectFields, Components::UnitFields& unitFields, Components::VisibilityInfo& visibilityInfo)
+        {
+            std::shared_ptr<Bytebuffer> buffer = Bytebuffer::Borrow<1024>();
+
+            bool failed = false;
+            auto objectGUID = objectFields.fields.GetField<ObjectGUID>(Generated::ObjectNetFieldsEnum::ObjectGUIDLow);
+
+            if (objectFields.fields.IsDirty())
+            {
+                failed |= !Util::MessageBuilder::CreatePacket(buffer, (Network::OpcodeType)Generated::PacketListEnum::ServerObjectNetFieldUpdate, [&buffer, &objectFields, objectGUID]()
+                {
+                    buffer->Serialize(objectGUID);
+                    objectFields.fields.SerializeDirtyFields(buffer.get());
+                });
+            }
+
+            if (unitFields.fields.IsDirty())
+            {
+                failed |= !Util::MessageBuilder::CreatePacket(buffer, (Network::OpcodeType)Generated::PacketListEnum::ServerUnitNetFieldUpdate, [&buffer, &unitFields, objectGUID]()
+                {
+                    buffer->Serialize(objectGUID);
+                    unitFields.fields.SerializeDirtyFields(buffer.get());
+                });
+            }
+
+            if (failed)
+            {
+                NC_LOG_ERROR("Failed to build unit net field update message for entity: {0}", entt::to_integral(entity));
+                return;
+            }
+
+            bool sendToSelf = objectGUID.GetType() == ObjectGUID::Type::Player;
+            Util::Network::SendToNearby(networkState, world, entity, visibilityInfo, sendToSelf, buffer);
+        });
+        world.Clear<Events::ObjectNeedsNetFieldUpdate>();
     }
 
     void UpdateWorld::HandleProximityTriggerDeinitialization(World& world, Scripting::Zenith* zenith, Singletons::TimeState& timeState, Singletons::GameCache& gameCache, Singletons::NetworkState& networkState)
@@ -969,19 +1081,6 @@ namespace ECS::Systems
     }
     void UpdateWorld::HandleDisplayUpdate(World& world, Scripting::Zenith* zenith, Singletons::TimeState& timeState, Singletons::NetworkState& networkState)
     {
-        auto view = world.View<Components::ObjectInfo, Components::VisibilityInfo, Components::DisplayInfo, Events::CharacterNeedsDisplayUpdate>();
-        view.each([&](entt::entity entity, Components::ObjectInfo& objectInfo, Components::VisibilityInfo& visibilityInfo, Components::DisplayInfo& displayInfo)
-        {
-            ECS::Util::Network::SendToNearby(networkState, world, entity, visibilityInfo, true, Generated::UnitDisplayInfoUpdatePacket{
-                .guid = objectInfo.guid,
-                .displayID = displayInfo.displayID,
-                .race = static_cast<u8>(displayInfo.unitRace),
-                .gender = static_cast<u8>(displayInfo.unitGender)
-            });
-        });
-    
-        world.Clear<Events::CharacterNeedsDisplayUpdate>();
-
         auto visualItemView = world.View<Components::ObjectInfo, Components::VisibilityInfo, Components::UnitVisualItems, Events::CharacterNeedsVisualItemUpdate>();
         visualItemView.each([&](entt::entity entity, Components::ObjectInfo& objectInfo, Components::VisibilityInfo& visibilityInfo, Components::UnitVisualItems& visualItems)
         {
@@ -1011,6 +1110,12 @@ namespace ECS::Systems
                 zenith->CallEvent(Generated::LuaCreatureAIEventEnum::OnEnterCombat, Generated::LuaCreatureAIEventDataOnEnterCombat{
                     .creatureEntity = entt::to_integral(entity)
                 });
+            }
+
+            if (auto* unitFollowPath = world.TryGet<Components::UnitFollowPath>(entity))
+            {
+                unitFollowPath->target = event.target;
+                world.EmplaceOrReplace<Tags::UnitIsFollowing>(entity);
             }
         });
         world.Clear<Events::UnitEnterCombat>();
@@ -1068,6 +1173,176 @@ namespace ECS::Systems
                     .creatureEntity = entt::to_integral(entity)
                 });
             }
+
+            if (auto* unitFollowPath = world.TryGet<Components::UnitFollowPath>(entity))
+            {
+                unitFollowPath->target = entt::null;
+                world.Remove<Tags::UnitIsFollowing>(entity);
+
+                auto& transform = world.Get<Components::Transform>(entity);
+                auto& visibilityInfo = world.Get<Components::VisibilityInfo>(entity);
+
+                transform.pitchYaw.y = 0.0f;
+
+                ECS::Util::Network::SendToNearby(networkState, world, entity, visibilityInfo, false, Generated::ServerUnitMovePacket{
+                    .guid = objectInfo.guid,
+                    .movementFlags = 0x32,
+                    .position = transform.position,
+                    .pitchYaw = transform.pitchYaw,
+                    .verticalVelocity = 0.0f
+                });
+
+                world.creatureVisData.Update(objectInfo.guid, transform.position.x, transform.position.z);
+            }
+        });
+
+        auto followView = world.View<Components::ObjectInfo, Components::Transform, Components::VisibilityInfo, Components::UnitFollowPath, Tags::UnitIsFollowing>();
+        followView.each([&](entt::entity entity, Components::ObjectInfo& objectInfo, Components::Transform& transform, Components::VisibilityInfo& visibilityInfo, Components::UnitFollowPath& unitFollowPath)
+        {
+            unitFollowPath.recalcTimer = glm::max(unitFollowPath.recalcTimer - timeState.deltaTime, 0.0f, 0.5f);
+            
+            if (!world.ValidEntity(unitFollowPath.target))
+                return;
+
+            auto& targetTransform = world.Get<Components::Transform>(unitFollowPath.target);
+
+            bool recalc = unitFollowPath.recalcTimer <= 0.0f || unitFollowPath.numPositions == 0 || glm::distance2(unitFollowPath.positions[unitFollowPath.numPositions - 1], vec3(targetTransform.position.x, targetTransform.position.y, -targetTransform.position.z)) > 4.0f;
+
+            if (recalc)
+            {
+                unitFollowPath.numPositions = 0;
+                unitFollowPath.currentPositionIndex = 0;
+
+                dtQueryFilter filter;
+                filter.setIncludeFlags(0xFFFF);
+                filter.setExcludeFlags(0);
+
+                vec3 startPos = vec3(transform.position.x, transform.position.y, -transform.position.z);
+                vec3 endPos = vec3(targetTransform.position.x, targetTransform.position.y, -targetTransform.position.z);
+                vec3 polyPickExt = vec3(2.0f, 30.0f, 2.0f);
+
+                auto* navMesh = world.navmeshData.GetNavMesh();
+                auto* navQuery = world.navmeshData.GetQuery();
+
+                navQuery->findNearestPoly(&startPos.x, &polyPickExt.x, &filter, &unitFollowPath.polyRefStart, nullptr);
+                navQuery->findNearestPoly(&endPos.x, &polyPickExt.x, &filter, &unitFollowPath.polyRefEnd, nullptr);
+
+                if (unitFollowPath.polyRefStart > 0 && unitFollowPath.polyRefEnd > 0)
+                {
+                    navQuery->closestPointOnPoly(unitFollowPath.polyRefStart, &startPos.x, &startPos.x, nullptr);
+                    navQuery->closestPointOnPoly(unitFollowPath.polyRefEnd, &endPos.x, &endPos.x, nullptr);
+
+                    dtPolyRef path[256];
+                    i32 pathCount = 0;
+                    navQuery->findPath(unitFollowPath.polyRefStart, unitFollowPath.polyRefEnd, &startPos.x, &endPos.x, &filter, path, &pathCount, 256);
+
+                    if (pathCount > 0)
+                    {
+                        vec3 lastPointPos = endPos;
+                        dtPolyRef lastRef = path[pathCount - 1];
+                        if (lastRef != unitFollowPath.polyRefEnd)
+                            navQuery->closestPointOnPoly(lastRef, &endPos.x, &lastPointPos.x, nullptr);
+
+                        dtPolyRef straightPathPolyRefs[256];
+                        f32 straightPath[256 * 3];
+                        i32 straightPathCount = 0;
+
+                        navQuery->findStraightPath(&startPos.x, &lastPointPos.x, path, pathCount, straightPath, nullptr, straightPathPolyRefs, &straightPathCount, 256);
+                        if (straightPathCount > 0)
+                        {
+                            memcpy(&unitFollowPath.positions[0], straightPath, straightPathCount * sizeof(vec3));
+
+                            unitFollowPath.polyRefCurrent = unitFollowPath.polyRefStart;
+                            unitFollowPath.numPositions = straightPathCount;
+                            unitFollowPath.currentPositionIndex = 0;
+
+                            unitFollowPath.recalcTimer = 0.25f;
+                        }
+                    }
+                }
+            }
+
+            if (unitFollowPath.numPositions == 0)
+                return;
+
+            auto* query = world.navmeshData.GetQuery();
+
+            dtQueryFilter filter;
+            filter.setIncludeFlags(0xFFFF);
+            filter.setExcludeFlags(0);
+
+            if (unitFollowPath.polyRefCurrent == 0)
+            {
+                vec3 ext = vec3(2.0f, 30.0f, 2.0f);
+                query->findNearestPoly(&transform.position.x, &ext.x, &filter, &unitFollowPath.polyRefCurrent, nullptr);
+
+                if (unitFollowPath.polyRefCurrent == 0)
+                    return;
+            }
+
+            vec3 cornerTarget = unitFollowPath.positions[unitFollowPath.currentPositionIndex];
+            cornerTarget.z *= -1.0f;
+
+            vec3 toCorner = cornerTarget - transform.position;
+            f32 distSq = dot(toCorner, toCorner);
+            if (distSq < 0.05f)
+            {
+                if (unitFollowPath.currentPositionIndex + 1 < unitFollowPath.numPositions)
+                {
+                    unitFollowPath.currentPositionIndex++;
+
+                    cornerTarget = unitFollowPath.positions[unitFollowPath.currentPositionIndex];
+                    cornerTarget.z *= -1.0f;
+                }
+                else
+                {
+                    // reached final corner
+                    return;
+                }
+            }
+
+            f32 speed = 7.1111f;
+            vec3 dir = glm::normalize(cornerTarget - transform.position);
+            vec3 desiredPos = transform.position + dir * (speed * timeState.deltaTime);
+            desiredPos.z *= -1.0f;
+
+            vec3 resultPos = vec3(0.0f);
+            dtPolyRef visited[32];
+            i32 visitedCount = 0;
+
+            query->moveAlongSurface(unitFollowPath.polyRefCurrent, &transform.position.x, &desiredPos.x, &filter, &resultPos.x, visited, &visitedCount, 32);
+
+            if (visitedCount == 0)
+                return;
+
+            vec3 finalPos = vec3(resultPos[0], resultPos[1], -resultPos[2]);
+            vec3 moveDir = finalPos - transform.position;
+            if (glm::length2(moveDir) > 0)
+                moveDir = glm::normalize(moveDir);
+
+            auto normalizeAngle = [](f32 a)
+            {
+                while (a > glm::pi<f32>()) a -= 2.0f * glm::pi<f32>();
+                while (a < -glm::pi<f32>()) a += 2.0f * glm::pi<f32>();
+
+                return a;
+            };
+
+            transform.pitchYaw.y = normalizeAngle(distSq < 0.05f ? transform.pitchYaw.y : std::atan2(moveDir.x, moveDir.z) + glm::pi<f32>());
+            transform.position = finalPos;
+
+            if (visitedCount > 0)
+                unitFollowPath.polyRefCurrent = visited[visitedCount - 1];
+
+            ECS::Util::Network::SendToNearby(networkState, world, entity, visibilityInfo, false, Generated::ServerUnitMovePacket{
+                .guid = objectInfo.guid,
+                .movementFlags = 0x33,
+                .position = transform.position,
+                .pitchYaw = transform.pitchYaw,
+                .verticalVelocity = 0.0f
+            });
+
+            world.creatureVisData.Update(objectInfo.guid, transform.position.x, transform.position.z);
         });
     }
     void UpdateWorld::HandlePowerUpdate(World& world, Scripting::Zenith* zenith, Singletons::TimeState& timeState, Singletons::NetworkState& networkState)

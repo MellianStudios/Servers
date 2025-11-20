@@ -24,6 +24,7 @@ namespace ECS
         struct Transform;
         struct UnitAuraInfo;
         struct UnitCombatInfo;
+        struct UnitFields;
         struct UnitPowersComponent;
         struct UnitResistancesComponent;
         struct UnitSpellCooldownHistory;
@@ -42,10 +43,10 @@ namespace ECS
 namespace ECS::Util::Unit
 {
     u32 GetDisplayIDFromRaceGender(GameDefine::UnitRace race, GameDefine::UnitGender unitGender);
-    void UpdateDisplayID(entt::registry& registry, entt::entity entity, Components::DisplayInfo& displayInfo, u32 displayID, bool forceDirty = true);
-    void UpdateDisplayRaceGender(entt::registry& registry, entt::entity entity, Components::DisplayInfo& displayInfo, GameDefine::UnitRace race, GameDefine::UnitGender gender, bool forceDirty = true);
-    void UpdateDisplayRace(entt::registry& registry, entt::entity entity, Components::DisplayInfo& displayInfo, GameDefine::UnitRace race, bool forceDirty = true);
-    void UpdateDisplayGender(entt::registry& registry, entt::entity entity, Components::DisplayInfo& displayInfo, GameDefine::UnitGender gender, bool forceDirty = true);
+    void UpdateDisplayID(entt::registry& registry, entt::entity entity, Components::UnitFields& unitFields, u32 displayID, bool forceDirty = true);
+    void UpdateDisplayRaceGender(entt::registry& registry, entt::entity entity, Components::UnitFields& unitFields, GameDefine::UnitRace race, GameDefine::UnitGender gender, bool forceDirty = true);
+    void UpdateDisplayRace(entt::registry& registry, entt::entity entity, Components::UnitFields& unitFields, GameDefine::UnitRace race, bool forceDirty = true);
+    void UpdateDisplayGender(entt::registry& registry, entt::entity entity, Components::UnitFields& unitFields, GameDefine::UnitGender gender, bool forceDirty = true);
 
     ECS::Components::UnitPowersComponent& AddPowersComponent(World& world, entt::entity entity, GameDefine::UnitClass unitClass);
     ECS::Components::UnitResistancesComponent& AddResistancesComponent(World& world, entt::entity entity);

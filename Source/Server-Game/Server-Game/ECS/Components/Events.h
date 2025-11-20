@@ -14,7 +14,6 @@ namespace ECS::Events
     struct CharacterNeedsInitialization {};
     struct CharacterNeedsDeinitialization {};
     struct CharacterNeedsContainerUpdate {};
-    struct CharacterNeedsDisplayUpdate {};
     struct CharacterNeedsRecalculateStatsUpdate {};
     struct CharacterNeedsVisualItemUpdate {};
     struct CharacterNeedsStatUpdate {};
@@ -70,7 +69,7 @@ namespace ECS::Events
     struct UnitEnterCombat
     {
     public:
-        f32 timeToLeaveCombat;
+        entt::entity target;
     };
     struct UnitDied
     {

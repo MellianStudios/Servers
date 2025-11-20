@@ -54,7 +54,10 @@
 #include <Base/Util/DebugHandler.h>
 #include <Base/Util/StringUtils.h>
 
+#include <FileFormat/Shared.h>
+
 #include <Gameplay/GameDefine.h>
+#include <Gameplay/ECS/Components/UnitFields.h>
 #include <Gameplay/Network/GameMessageRouter.h>
 
 #include <Meta/Generated/Shared/ClientDB.h>
@@ -359,17 +362,21 @@ namespace ECS::Systems
         if (!message.buffer->GetU32(displayID))
             return false;
 
-        auto& displayInfo = world.Get<Components::DisplayInfo>(entity);
-        Util::Unit::UpdateDisplayID(*world.registry, entity, displayInfo, displayID);
+        auto& unitFields = world.Get<Components::UnitFields>(entity);
+        Util::Unit::UpdateDisplayID(*world.registry, entity, unitFields, displayID);
 
         return true;
     }
     bool HandleOnCheatDemorph(entt::registry* registry, World& world, Network::SocketID socketID, entt::entity entity, Network::Message& message)
     {
-        auto& displayInfo = world.Get<Components::DisplayInfo>(entity);
+        auto& unitFields = world.Get<Components::UnitFields>(entity);
 
-        u32 nativeDisplayID = Util::Unit::GetDisplayIDFromRaceGender(displayInfo.unitRace, displayInfo.unitGender);
-        Util::Unit::UpdateDisplayID(*world.registry, entity, displayInfo, nativeDisplayID);
+        u32 levelRaceGenderClassPacked = unitFields.fields.GetField<u32>(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked);
+        GameDefine::UnitRace unitRace = static_cast<GameDefine::UnitRace>((levelRaceGenderClassPacked >> 16) & 0x7F);
+        GameDefine::UnitGender unitGender = static_cast<GameDefine::UnitGender>((levelRaceGenderClassPacked >> 23) & 0x3);
+
+        u32 nativeDisplayID = Util::Unit::GetDisplayIDFromRaceGender(unitRace, unitGender);
+        Util::Unit::UpdateDisplayID(*world.registry, entity, unitFields, nativeDisplayID);
 
         return true;
     }
@@ -390,8 +397,8 @@ namespace ECS::Systems
         if (Util::Persistence::Character::CharacterSetRace(gameCache, *registry, characterID, unitRace) != ECS::Result::Success)
             return false;
 
-        auto& displayInfo = world.Get<Components::DisplayInfo>(entity);
-        Util::Unit::UpdateDisplayRace(*world.registry, entity, displayInfo, unitRace);
+        auto& unitFields = world.Get<Components::UnitFields>(entity);
+        Util::Unit::UpdateDisplayRace(*world.registry, entity, unitFields, unitRace);
 
         return true;
     }
@@ -412,8 +419,8 @@ namespace ECS::Systems
         if (Util::Persistence::Character::CharacterSetGender(gameCache, *world.registry, characterID, unitGender) != ECS::Result::Success)
             return false;
 
-        auto& displayInfo = world.Get<Components::DisplayInfo>(entity);
-        Util::Unit::UpdateDisplayGender(*world.registry, entity, displayInfo, unitGender);
+        auto& unitFields = world.Get<Components::UnitFields>(entity);
+        Util::Unit::UpdateDisplayGender(*world.registry, entity, unitFields, unitGender);
         
         return true;
     }
@@ -694,7 +701,7 @@ namespace ECS::Systems
         if (auto conn = gameCache.dbController->GetConnection(Database::DBType::Character))
         {
             auto transaction = conn->NewTransaction();
-            auto queryResult = transaction.exec(pqxx::prepped("SetMap"), pqxx::params{ map.id, map.flags, map.name, map.type, map.maxPlayers });
+            auto queryResult = transaction.exec(pqxx::prepped("SetMap"), pqxx::params{ map.id, map.flags, map.internalName, map.name, map.type, map.maxPlayers });
             if (queryResult.affected_rows() == 0)
             {
                 transaction.abort();
@@ -1032,7 +1039,6 @@ namespace ECS::Systems
 
         return true;
     }
-
     bool HandleOnCheatSpellProcDataSet(entt::registry* registry, World& world, Network::SocketID socketID, entt::entity entity, Network::Message& message)
     {
         u32 spellProcDataID = 0;
@@ -1063,7 +1069,6 @@ namespace ECS::Systems
 
         return true;
     }
-
     bool HandleOnCheatSpellProcLinkSet(entt::registry* registry, World& world, Network::SocketID socketID, entt::entity entity, Network::Message& message)
     {
         u32 spellProcLinkID = 0;
@@ -1738,7 +1743,7 @@ namespace ECS::Systems
         ECS::Util::Network::SendToNearby(networkState, *world, entity, visibilityInfo, true, Generated::ServerSendChatMessagePacket{
             .guid = objectInfo.guid,
             .message = packet.message
-            });
+        });
 
         return true;
     }
@@ -1821,6 +1826,76 @@ namespace ECS::Systems
 
         return true;
     }
+    
+    bool HandleOnClientPathGenerate(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientPathGeneratePacket& packet)
+    {
+        entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
+        auto& networkState = registry->ctx().get<Singletons::NetworkState>();
+
+        dtQueryFilter filter;
+        filter.setIncludeFlags(0xFFFF);
+        filter.setExcludeFlags(0);
+
+        // AV : Ally Start -> Horde Base
+        //vec3 startPos = vec3(490.59f, 97.50f, -764.04f);
+        //vec3 endPos = vec3(289.57f, 90.45f, 1319.79f);
+
+        vec3 startPos = vec3(packet.start.x, packet.start.y, -packet.start.z);
+        vec3 endPos = vec3(packet.end.x, packet.end.y, -packet.end.z);
+        vec3 polyPickExt = vec3(50.0f, 100.0f, 50.0f);
+
+        dtPolyRef startRef, endRef;
+
+        auto* navMesh = world->navmeshData.GetNavMesh();
+        auto* navQuery = world->navmeshData.GetQuery();
+
+        navQuery->findNearestPoly(&startPos.x, &polyPickExt.x, &filter, &startRef, nullptr);
+        navQuery->findNearestPoly(&endPos.x, &polyPickExt.x, &filter, &endRef, nullptr);
+        
+        if (startRef == 0 || endRef == 0)
+            return true;
+
+        navQuery->closestPointOnPoly(startRef, &startPos.x, &startPos.x, nullptr);
+        navQuery->closestPointOnPoly(endRef, &endPos.x, &endPos.x, nullptr);
+
+        dtPolyRef path[1024];
+        i32 pathCount = 0;
+        navQuery->findPath(startRef, endRef, &startPos.x, &endPos.x, &filter, path, &pathCount, 1024);
+
+        if (pathCount == 0)
+            return true;
+
+        vec3 lastPointPos = endPos;
+        dtPolyRef lastRef = path[pathCount - 1];
+        if (lastRef != endRef)
+            navQuery->closestPointOnPoly(lastRef, &endPos.x, &lastPointPos.x, nullptr);
+
+        dtPolyRef straightPathPolyRefs[1024];
+        f32 straightPath[1024 * 3];
+        i32 straightPathCount = 0;
+
+        navQuery->findStraightPath(&startPos.x, &lastPointPos.x, path, pathCount, straightPath, nullptr, straightPathPolyRefs, &straightPathCount, 1024);
+
+        for (i32 i = 0; i < straightPathCount; i++)
+        {
+            straightPath[i * 3 + 2] *= -1.0f;
+        }
+
+        if (straightPathCount > 0)
+        {
+            std::shared_ptr<Bytebuffer> buffer = Bytebuffer::Borrow<8192>();
+            ECS::Util::MessageBuilder::CreatePacket(buffer, Generated::ServerPathVisualizationPacket::PACKET_ID, [&, straightPathCount]()
+            {
+                u32 numPathCount = static_cast<u32>(straightPathCount);
+                buffer->PutU32(numPathCount);
+                buffer->PutBytes(straightPath, numPathCount * sizeof(vec3));
+            });
+
+            Util::Network::SendPacket(networkState, socketID, buffer);
+        }
+
+        return true;
+    }
 
     void NetworkConnection::Init(entt::registry& registry)
     {
@@ -1849,6 +1924,7 @@ namespace ECS::Systems
             networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnClientTriggerEnter);
             networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnClientSendChatMessage);
             networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnClientSpellCast);
+            networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnClientPathGenerate);
 
             // Bind to IP/Port
             std::string ipAddress = "0.0.0.0";
