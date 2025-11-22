@@ -30,11 +30,14 @@
 *.out
 *.app
 
-build*/ 
+build*/
+Build*/
 .vs/
 .vscode/
+.idea/
 out/
 CMakeSettings.json
+CMakeLists.txt
 
 # Exceptions
 .cache/

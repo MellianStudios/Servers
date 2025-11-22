@@ -64,8 +64,6 @@ namespace Network
         template <PacketConcept PacketStruct>
         void UnregisterPacketHandler(OpcodeType opcode)
         {
-            auto opcode = static_cast<OpcodeType>(PacketStruct::PACKET_ID);
-
             MessageHandler& handler = _handlers[opcode];
             handler.status = ConnectionStatus::None;
             handler.minSize = 0;
