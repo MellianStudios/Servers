@@ -7,21 +7,21 @@ namespace Scripting
 {
     namespace Event::Character
     {
-        void OnCharacterLogin(Zenith* zenith, Generated::LuaCharacterEventDataOnLogin& data)
+        void OnCharacterLogin(Zenith* zenith, MetaGen::Server::Lua::CharacterEventDataOnLogin& data)
         {
             zenith->CreateTable();
 
             auto* character = Game::Character::Create(zenith, static_cast<entt::entity>(data.characterEntity));
             zenith->SetTableKey("character");
         }
-        void OnCharacterLogout(Zenith* zenith, Generated::LuaCharacterEventDataOnLogout& data)
+        void OnCharacterLogout(Zenith* zenith, MetaGen::Server::Lua::CharacterEventDataOnLogout& data)
         {
             zenith->CreateTable();
 
             auto* character = Game::Character::Create(zenith, static_cast<entt::entity>(data.characterEntity));
             zenith->SetTableKey("character");
         }
-        void OnCharacterWorldChanged(Zenith* zenith, Generated::LuaCharacterEventDataOnWorldChanged& data)
+        void OnCharacterWorldChanged(Zenith* zenith, MetaGen::Server::Lua::CharacterEventDataOnWorldChanged& data)
         {
             zenith->CreateTable();
 

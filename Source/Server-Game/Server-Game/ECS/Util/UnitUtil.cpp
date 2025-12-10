@@ -21,7 +21,7 @@
 
 #include <Gameplay/ECS/Components/UnitFields.h>
 
-#include <Meta/Generated/Shared/NetworkPacket.h>
+#include <MetaGen/Shared/Packet/Packet.h>
 
 #include <entt/entt.hpp>
 
@@ -86,29 +86,29 @@ namespace ECS::Util::Unit
     void UpdateDisplayID(entt::registry& registry, entt::entity entity, Components::UnitFields& unitFields, u32 displayID, bool forceDirty)
     {
         // If the displayID is the same, we don't need to update it
-        u32 currentDisplayID = unitFields.fields.GetField<u32>(Generated::UnitNetFieldsEnum::DisplayID);
+        u32 currentDisplayID = unitFields.fields.GetField<u32>(MetaGen::Shared::NetField::UnitNetFieldEnum::DisplayID);
         if (currentDisplayID == displayID)
             return;
         
-        unitFields.fields.SetField(Generated::UnitNetFieldsEnum::DisplayID, displayID);
+        unitFields.fields.SetField(MetaGen::Shared::NetField::UnitNetFieldEnum::DisplayID, displayID);
         registry.emplace_or_replace<Events::ObjectNeedsNetFieldUpdate>(entity);
     }
     void UpdateDisplayRaceGender(entt::registry& registry, entt::entity entity, Components::UnitFields& unitFields, GameDefine::UnitRace race, GameDefine::UnitGender gender, bool forceDirty)
     {
-        constexpr u8 GenderBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitOffset;
-        constexpr u8 RaceBitSize = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitSize;
-        constexpr u8 GenderBitSize = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitSize;
-        constexpr u8 RaceGenderBytesOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceByteOffset;
-        constexpr u8 RaceGenderBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitOffset;
+        constexpr u8 GenderBitOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitOffset;
+        constexpr u8 RaceBitSize = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitSize;
+        constexpr u8 GenderBitSize = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitSize;
+        constexpr u8 RaceGenderBytesOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::RaceByteOffset;
+        constexpr u8 RaceGenderBitOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitOffset;
         constexpr u8 RaceGenderBitSize = RaceBitSize + GenderBitSize;
 
-        auto currentRaceGenderPacked = unitFields.fields.GetField<u16>(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, RaceGenderBytesOffset, RaceGenderBitOffset, RaceGenderBitSize);
+        auto currentRaceGenderPacked = unitFields.fields.GetField<u16>(MetaGen::Shared::NetField::UnitNetFieldEnum::LevelRaceGenderClassPacked, RaceGenderBytesOffset, RaceGenderBitOffset, RaceGenderBitSize);
         u16 newRaceGenderPacked = static_cast<u16>(race) | static_cast<u16>(gender) << GenderBitOffset;
 
         if (currentRaceGenderPacked == newRaceGenderPacked)
             return;
 
-        unitFields.fields.SetField(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, newRaceGenderPacked, RaceGenderBytesOffset, RaceGenderBitOffset, RaceGenderBitSize);
+        unitFields.fields.SetField(MetaGen::Shared::NetField::UnitNetFieldEnum::LevelRaceGenderClassPacked, newRaceGenderPacked, RaceGenderBytesOffset, RaceGenderBitOffset, RaceGenderBitSize);
         registry.emplace_or_replace<Events::ObjectNeedsNetFieldUpdate>(entity);
 
         u32 displayID = GetDisplayIDFromRaceGender(race, gender);
@@ -116,25 +116,25 @@ namespace ECS::Util::Unit
     }
     void UpdateDisplayRace(entt::registry& registry, entt::entity entity, Components::UnitFields& unitFields, GameDefine::UnitRace race, bool forceDirty)
     {
-        constexpr u8 RaceByteOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceByteOffset;
-        constexpr u8 RaceBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitOffset;
-        constexpr u8 RaceBitSize = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitSize;
-        constexpr u8 GenderBytesOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::GenderByteOffset;
-        constexpr u8 GenderBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitOffset;
-        constexpr u8 GenderBitSize = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitSize;
+        constexpr u8 RaceByteOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::RaceByteOffset;
+        constexpr u8 RaceBitOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitOffset;
+        constexpr u8 RaceBitSize = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitSize;
+        constexpr u8 GenderBytesOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::GenderByteOffset;
+        constexpr u8 GenderBitOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitOffset;
+        constexpr u8 GenderBitSize = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitSize;
         constexpr u8 GenderBitMask = (1 << GenderBitSize) - 1;
-        constexpr u8 RaceGenderBytesOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceByteOffset;
-        constexpr u8 RaceGenderBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitOffset;
+        constexpr u8 RaceGenderBytesOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::RaceByteOffset;
+        constexpr u8 RaceGenderBitOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitOffset;
         constexpr u8 RaceGenderBitSize = RaceBitSize + GenderBitSize;
 
-        auto packedRaceGender = unitFields.fields.GetField<u16>(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, RaceGenderBytesOffset, RaceGenderBitOffset, RaceGenderBitSize);
+        auto packedRaceGender = unitFields.fields.GetField<u16>(MetaGen::Shared::NetField::UnitNetFieldEnum::LevelRaceGenderClassPacked, RaceGenderBytesOffset, RaceGenderBitOffset, RaceGenderBitSize);
         auto currentRace = static_cast<GameDefine::UnitRace>(packedRaceGender & RaceBitSize);
 
         if (currentRace == race)
             return;
 
         auto currentGender = static_cast<GameDefine::UnitGender>((packedRaceGender >> GenderBitOffset) & GenderBitMask);
-        unitFields.fields.SetField(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, race, RaceByteOffset, RaceBitOffset, RaceBitSize);
+        unitFields.fields.SetField(MetaGen::Shared::NetField::UnitNetFieldEnum::LevelRaceGenderClassPacked, race, RaceByteOffset, RaceBitOffset, RaceBitSize);
         registry.emplace_or_replace<Events::ObjectNeedsNetFieldUpdate>(entity);
 
         u32 displayID = GetDisplayIDFromRaceGender(race, currentGender);
@@ -142,16 +142,16 @@ namespace ECS::Util::Unit
     }
     void UpdateDisplayGender(entt::registry& registry, entt::entity entity, Components::UnitFields& unitFields, GameDefine::UnitGender gender, bool forceDirty)
     {
-        constexpr u8 RaceBitSize = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitSize;
-        constexpr u8 GenderBytesOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::GenderByteOffset;
-        constexpr u8 GenderBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitOffset;
-        constexpr u8 GenderBitSize = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitSize;
+        constexpr u8 RaceBitSize = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitSize;
+        constexpr u8 GenderBytesOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::GenderByteOffset;
+        constexpr u8 GenderBitOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitOffset;
+        constexpr u8 GenderBitSize = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::GenderBitSize;
         constexpr u8 GenderBitMask = (1 << GenderBitSize) - 1;
-        constexpr u8 RaceGenderBytesOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceByteOffset;
-        constexpr u8 RaceGenderBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitOffset;
+        constexpr u8 RaceGenderBytesOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::RaceByteOffset;
+        constexpr u8 RaceGenderBitOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::RaceBitOffset;
         constexpr u8 RaceGenderBitSize = RaceBitSize + GenderBitSize;
 
-        auto packedRaceGender = unitFields.fields.GetField<u16>(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, RaceGenderBytesOffset, RaceGenderBitOffset, RaceGenderBitSize);
+        auto packedRaceGender = unitFields.fields.GetField<u16>(MetaGen::Shared::NetField::UnitNetFieldEnum::LevelRaceGenderClassPacked, RaceGenderBytesOffset, RaceGenderBitOffset, RaceGenderBitSize);
         auto currentGender = static_cast<GameDefine::UnitGender>((packedRaceGender >> GenderBitOffset) & GenderBitMask);
 
         if (currentGender == gender)
@@ -159,7 +159,7 @@ namespace ECS::Util::Unit
 
         auto currentRace = static_cast<GameDefine::UnitRace>(packedRaceGender & RaceBitSize);
 
-        unitFields.fields.SetField(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, gender, GenderBytesOffset, GenderBitOffset, GenderBitSize);
+        unitFields.fields.SetField(MetaGen::Shared::NetField::UnitNetFieldEnum::LevelRaceGenderClassPacked, gender, GenderBytesOffset, GenderBitOffset, GenderBitSize);
         registry.emplace_or_replace<Events::ObjectNeedsNetFieldUpdate>(entity);
 
         u32 displayID = GetDisplayIDFromRaceGender(currentRace, currentGender);
@@ -170,13 +170,13 @@ namespace ECS::Util::Unit
     {
         auto& unitPowersComponent = world.Emplace<Components::UnitPowersComponent>(entity);
 
-        AddPower(world, entity, unitPowersComponent, Generated::PowerTypeEnum::Health, 100.0, 100.0, 100.0);
+        AddPower(world, entity, unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Health, 100.0, 100.0, 100.0);
 
         switch (unitClass)
         {
             case GameDefine::UnitClass::Warrior:
             {
-                AddPower(world, entity, unitPowersComponent, Generated::PowerTypeEnum::Rage, 100.0, 0.0, 100.0);
+                AddPower(world, entity, unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Rage, 100.0, 0.0, 100.0);
                 break;
             }
             case GameDefine::UnitClass::Paladin:
@@ -186,19 +186,19 @@ namespace ECS::Util::Unit
             case GameDefine::UnitClass::Warlock:
             case GameDefine::UnitClass::Druid:
             {
-                AddPower(world, entity, unitPowersComponent, Generated::PowerTypeEnum::Mana, 100.0, 100.0, 100.0);
+                AddPower(world, entity, unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Mana, 100.0, 100.0, 100.0);
                 break;
             }
 
             case GameDefine::UnitClass::Hunter:
             {
-                AddPower(world, entity, unitPowersComponent, Generated::PowerTypeEnum::Focus, 100.0, 0.0, 100.0);
+                AddPower(world, entity, unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Focus, 100.0, 0.0, 100.0);
                 break;
             }
 
             case GameDefine::UnitClass::Rogue:
             {
-                AddPower(world, entity, unitPowersComponent, Generated::PowerTypeEnum::Energy, 100.0, 0.0, 100.0);
+                AddPower(world, entity, unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Energy, 100.0, 0.0, 100.0);
                 break;
             }
         }
@@ -216,15 +216,15 @@ namespace ECS::Util::Unit
     {
         auto& unitStatsComponent = world.Emplace<Components::UnitStatsComponent>(entity);
 
-        AddStat(unitStatsComponent, Generated::StatTypeEnum::Health, 100.0, 100.0);
-        AddStat(unitStatsComponent, Generated::StatTypeEnum::Stamina, 0.0, 0.0);
-        AddStat(unitStatsComponent, Generated::StatTypeEnum::Strength, 0.0, 0.0);
-        AddStat(unitStatsComponent, Generated::StatTypeEnum::Agility, 0.0, 0.0);
-        AddStat(unitStatsComponent, Generated::StatTypeEnum::Intellect, 0.0, 0.0);
-        AddStat(unitStatsComponent, Generated::StatTypeEnum::Spirit, 0.0, 0.0);
-        AddStat(unitStatsComponent, Generated::StatTypeEnum::Armor, 0.0, 0.0);
-        AddStat(unitStatsComponent, Generated::StatTypeEnum::AttackPower, 0.0, 0.0);
-        AddStat(unitStatsComponent, Generated::StatTypeEnum::SpellPower, 0.0, 0.0);
+        AddStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::Health, 100.0, 100.0);
+        AddStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::Stamina, 0.0, 0.0);
+        AddStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::Strength, 0.0, 0.0);
+        AddStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::Agility, 0.0, 0.0);
+        AddStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::Intellect, 0.0, 0.0);
+        AddStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::Spirit, 0.0, 0.0);
+        AddStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::Armor, 0.0, 0.0);
+        AddStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::AttackPower, 0.0, 0.0);
+        AddStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::SpellPower, 0.0, 0.0);
 
         return unitStatsComponent;
     }
@@ -250,7 +250,7 @@ namespace ECS::Util::Unit
         
         world.playerVisData.Update(objectInfo.guid, transform.position.x, transform.position.z);
 
-        ECS::Util::Network::SendToNearby(networkState, world, entity, visibilityInfo, true, Generated::ServerUnitTeleportPacket{
+        ECS::Util::Network::SendToNearby(networkState, world, entity, visibilityInfo, true, MetaGen::Shared::Packet::ServerUnitTeleportPacket{
             .guid = objectInfo.guid,
             .position = transform.position,
             .orientation = transform.pitchYaw.y
@@ -280,7 +280,7 @@ namespace ECS::Util::Unit
 
     void SendChatMessage(World& world, Singletons::NetworkState& networkState, ::Network::SocketID socketID, const std::string& message)
     {
-        ECS::Util::Network::SendPacket(networkState, socketID, Generated::ServerSendChatMessagePacket{
+        ECS::Util::Network::SendPacket(networkState, socketID, MetaGen::Shared::Packet::ServerSendChatMessagePacket{
             .guid = ObjectGUID::Empty,
             .message = message
         });
@@ -307,23 +307,23 @@ namespace ECS::Util::Unit
         unitSpellCooldownHistory.spellIDToCooldown[spellID] = cooldown;
     }
 
-    bool HasPower(const Components::UnitPowersComponent& unitPowersComponent, Generated::PowerTypeEnum powerType)
+    bool HasPower(const Components::UnitPowersComponent& unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum powerType)
     {
         bool hasPowerType = unitPowersComponent.powerTypeToValue.contains(powerType);
         return hasPowerType;
     }
-    UnitPower& GetPower(Components::UnitPowersComponent& unitPowersComponent, Generated::PowerTypeEnum powerType)
+    UnitPower& GetPower(Components::UnitPowersComponent& unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum powerType)
     {
         return unitPowersComponent.powerTypeToValue.at(powerType);
     }
-    UnitPower* TryGetPower(Components::UnitPowersComponent& unitPowersComponent, Generated::PowerTypeEnum powerType)
+    UnitPower* TryGetPower(Components::UnitPowersComponent& unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum powerType)
     {
         if (!HasPower(unitPowersComponent, powerType))
             return nullptr;
 
         return &unitPowersComponent.powerTypeToValue[powerType];
     }
-    bool AddPower(World& world, entt::entity entity, Components::UnitPowersComponent& unitPowersComponent, Generated::PowerTypeEnum powerType, f64 base, f64 current, f64 max)
+    bool AddPower(World& world, entt::entity entity, Components::UnitPowersComponent& unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum powerType, f64 base, f64 current, f64 max)
     {
         if (HasPower(unitPowersComponent, powerType))
             return false;
@@ -334,13 +334,13 @@ namespace ECS::Util::Unit
         power.current = current;
         power.max = max;
 
-        if (powerType == Generated::PowerTypeEnum::Health && power.current < power.max)
+        if (powerType == MetaGen::Shared::Unit::PowerTypeEnum::Health && power.current < power.max)
             world.EmplaceOrReplace<Tags::IsMissingHealth>(entity);
 
         world.EmplaceOrReplace<Events::UnitNeedsPowerUpdate>(entity);
         return true;
     }
-    bool SetPower(World& world, entt::entity entity, Components::UnitPowersComponent& unitPowersComponent, Generated::PowerTypeEnum powerType, f64 base, f64 current, f64 max)
+    bool SetPower(World& world, entt::entity entity, Components::UnitPowersComponent& unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum powerType, f64 base, f64 current, f64 max)
     {
         if (!HasPower(unitPowersComponent, powerType))
             return false;
@@ -355,7 +355,7 @@ namespace ECS::Util::Unit
             power.current = current;
             power.max = max;
 
-            if (powerType == Generated::PowerTypeEnum::Health)
+            if (powerType == MetaGen::Shared::Unit::PowerTypeEnum::Health)
             {
                 if (power.current == 0)
                 {
@@ -381,16 +381,16 @@ namespace ECS::Util::Unit
         return true;
     }
 
-    bool HasResistance(const Components::UnitResistancesComponent& unitResistancesComponent, Generated::ResistanceTypeEnum resistanceType)
+    bool HasResistance(const Components::UnitResistancesComponent& unitResistancesComponent, MetaGen::Shared::Unit::ResistanceTypeEnum resistanceType)
     {
         bool hasResistanceType = unitResistancesComponent.resistanceTypeToValue.contains(resistanceType);
         return hasResistanceType;
     }
-    UnitResistance& GetResistance(Components::UnitResistancesComponent& unitResistancesComponent, Generated::ResistanceTypeEnum resistanceType)
+    UnitResistance& GetResistance(Components::UnitResistancesComponent& unitResistancesComponent, MetaGen::Shared::Unit::ResistanceTypeEnum resistanceType)
     {
         return unitResistancesComponent.resistanceTypeToValue.at(resistanceType);
     }
-    bool AddResistance(Components::UnitResistancesComponent& unitResistancesComponent, Generated::ResistanceTypeEnum resistanceType, f64 base, f64 current, f64 max)
+    bool AddResistance(Components::UnitResistancesComponent& unitResistancesComponent, MetaGen::Shared::Unit::ResistanceTypeEnum resistanceType, f64 base, f64 current, f64 max)
     {
         if (HasResistance(unitResistancesComponent, resistanceType))
             return false;
@@ -405,16 +405,16 @@ namespace ECS::Util::Unit
         return true;
     }
 
-    bool HasStat(const Components::UnitStatsComponent& unitStatsComponent, Generated::StatTypeEnum statType)
+    bool HasStat(const Components::UnitStatsComponent& unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum statType)
     {
         bool hasStatType = unitStatsComponent.statTypeToValue.contains(statType);
         return hasStatType;
     }
-    UnitStat& GetStat(Components::UnitStatsComponent& unitStatsComponent, Generated::StatTypeEnum statType)
+    UnitStat& GetStat(Components::UnitStatsComponent& unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum statType)
     {
         return unitStatsComponent.statTypeToValue.at(statType);
     }
-    bool AddStat(Components::UnitStatsComponent& unitStatsComponent, Generated::StatTypeEnum statType, f64 base, f64 current)
+    bool AddStat(Components::UnitStatsComponent& unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum statType, f64 base, f64 current)
     {
         if (HasStat(unitStatsComponent, statType))
             return false;

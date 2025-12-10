@@ -10,7 +10,7 @@
 #include <Gameplay/GameDefine.h>
 #include <Gameplay/Network/Define.h>
 
-#include <Meta/Generated/Shared/UnitEnum.h>
+#include <MetaGen/Shared/Cheat/Cheat.h>
 
 #include <Network/Define.h>
 
@@ -50,7 +50,7 @@ namespace ECS
 
         namespace Cheat
         {
-            bool BuildCheatCommandResultMessage(std::shared_ptr<Bytebuffer>& buffer, Generated::CheatCommandEnum command, u8 result, const std::string& response);
+            bool BuildCheatCommandResultMessage(std::shared_ptr<Bytebuffer>& buffer, MetaGen::Shared::Cheat::CheatCommandEnum command, u8 result, const std::string& response);
 
             bool BuildCheatCharacterAddResponse(std::shared_ptr<Bytebuffer>& buffer, u8 result);
             bool BuildCheatCharacterRemoveResponse(std::shared_ptr<Bytebuffer>& buffer, u8 result);

@@ -5,7 +5,7 @@
 
 #include <Gameplay/Network/Define.h>
 
-#include <Meta/Generated/Shared/PacketList.h>
+#include <MetaGen/PacketList.h>
 
 #include <Network/Define.h>
 
@@ -61,11 +61,8 @@ namespace Network
             };
         }
 
-        template <PacketConcept PacketStruct>
         void UnregisterPacketHandler(OpcodeType opcode)
         {
-            auto opcode = static_cast<OpcodeType>(PacketStruct::PACKET_ID);
-
             MessageHandler& handler = _handlers[opcode];
             handler.status = ConnectionStatus::None;
             handler.minSize = 0;
@@ -78,6 +75,6 @@ namespace Network
         bool CallHandler(ECS::World* world, entt::entity entity, SocketID socketID, Network::MessageHeader& header, Message& message);
 
     private:
-        MessageHandler _handlers[(u16)Generated::PacketListEnum::Count];
+        MessageHandler _handlers[(u16)MetaGen::PacketListEnum::Count];
     };
 }

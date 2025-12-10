@@ -7,7 +7,8 @@
 #include <Base/CVarSystem/CVarSystem.h>
 #include <Base/Util/StringUtils.h>
 
-#include <Meta/Generated/Server/LuaEvent.h>
+#include <MetaGen/EnumTraits.h>
+#include <MetaGen/Server/Lua/Lua.h>
 
 #include <Scripting/LuaManager.h>
 
@@ -58,7 +59,7 @@ namespace Scripting
             if (entity == entt::null)
                 continue;
 
-            if (!zenith->CallEvent(Generated::LuaCreatureAIEventEnum::OnInit, Generated::LuaCreatureAIEventDataOnInit{
+            if (!zenith->CallEvent(MetaGen::Server::Lua::CreatureAIEvent::OnInit, MetaGen::Server::Lua::CreatureAIEventDataOnInit{
                 .creatureEntity = entt::to_integral(entity),
                 .scriptNameHash = scriptNameHash
                 }))

@@ -4,6 +4,8 @@
 #include <Base/Util/DebugHandler.h>
 #include <Base/Util/StringUtils.h>
 
+#include <MetaGen/Shared/Spell/Spell.h>
+
 #include <pqxx/nontransaction>
 
 namespace Database::Util::Spell
@@ -118,8 +120,8 @@ namespace Database::Util::Spell
                 effect.effectMiscValue2 = effect_misc_value_2;
                 effect.effectMiscValue3 = effect_misc_value_3;
 
-                if (effect.effectType == (u8)Generated::SpellEffectTypeEnum::AuraPeriodicDamage ||
-                    effect.effectType == (u8)Generated::SpellEffectTypeEnum::AuraPeriodicHeal)
+                if (effect.effectType == (u8)MetaGen::Shared::Spell::SpellEffectTypeEnum::AuraPeriodicDamage ||
+                    effect.effectType == (u8)MetaGen::Shared::Spell::SpellEffectTypeEnum::AuraPeriodicHeal)
                     return;
 
                 effectList.regularEffectsMask |= effectIndexMask;
@@ -219,7 +221,7 @@ namespace Database::Util::Spell
                 while (phaseMask)
                 {
                     u32 phaseType = std::countr_zero(phaseMask);
-                    if (phaseType >= (Generated::SpellProcPhaseTypeEnumMeta::Type)Generated::SpellProcPhaseTypeEnum::Count)
+                    if (phaseType >= (MetaGen::Shared::Spell::SpellProcPhaseTypeEnumMeta::Type)MetaGen::Shared::Spell::SpellProcPhaseTypeEnum::Count)
                         break;
 
                     procInfo.phaseLinkMask[phaseType] |= (1u << linkIndex);

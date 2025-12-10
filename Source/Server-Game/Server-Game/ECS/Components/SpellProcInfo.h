@@ -1,7 +1,7 @@
 #pragma once
 #include <Base/Types.h>
 
-#include <Meta/Generated/Shared/SpellEnum.h>
+#include <MetaGen/Shared/Spell/Spell.h>
 
 #include <robinhood/robinhood.h>
 
@@ -28,7 +28,7 @@ namespace ECS::Components
     public:
         u64 procEffectsMask = 0;
 
-        std::array<u16, (Generated::SpellProcPhaseTypeEnumMeta::Type)Generated::SpellProcPhaseTypeEnum::Count> phaseProcMask = { 0u, 0u, 0u, 0u, 0u, 0u };
+        std::array<u16, (MetaGen::Shared::Spell::SpellProcPhaseTypeEnumMeta::Type)MetaGen::Shared::Spell::SpellProcPhaseTypeEnum::Count> phaseProcMask = { 0u, 0u, 0u, 0u, 0u, 0u };
         std::vector<ProcInfo> procInfos;
     };
 }

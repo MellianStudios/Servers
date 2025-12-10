@@ -4,7 +4,7 @@
 #include "Server-Game/Scripting/Game/Aura.h"
 #include "Server-Game/Scripting/Game/AuraEffect.h"
 
-#include <Meta/Generated/Shared/SpellEnum.h>
+#include <MetaGen/Shared/Spell/Spell.h>
 
 #include <Scripting/Zenith.h>
 
@@ -21,9 +21,9 @@ namespace Scripting
         Game::AuraEffect::Register(zenith);
 
         {
-            zenith->CreateTable(Generated::SpellEffectTypeEnumMeta::EnumName.data());
+            zenith->CreateTable(MetaGen::Shared::Spell::SpellEffectTypeEnumMeta::ENUM_NAME.data());
 
-            for (const auto& pair : Generated::SpellEffectTypeEnumMeta::EnumList)
+            for (const auto& pair : MetaGen::Shared::Spell::SpellEffectTypeEnumMeta::ENUM_FIELD_LIST)
             {
                 zenith->AddTableField(pair.first.data(), pair.second);
             }

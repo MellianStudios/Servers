@@ -63,9 +63,12 @@
 #include <Gameplay/ECS/Components/UnitFields.h>
 #include <Gameplay/Network/GameMessageRouter.h>
 
-#include <Meta/Generated/Server/LuaEvent.h>
-#include <Meta/Generated/Shared/NetworkPacket.h>
-#include <Meta/Generated/Shared/SpellEnum.h>
+#include <MetaGen/EnumTraits.h>
+#include <MetaGen/Server/Lua/Lua.h>
+#include <MetaGen/Shared/NetField/NetField.h>
+#include <MetaGen/Shared/Packet/Packet.h>
+#include <MetaGen/Shared/ProximityTrigger/ProximityTrigger.h>
+#include <MetaGen/Shared/Spell/Spell.h>
 
 #include <Network/Server.h>
 
@@ -147,7 +150,7 @@ namespace ECS::Systems
                     .triggerID = id,
 
                     .name = name,
-                    .flags = static_cast<Generated::ProximityTriggerFlagEnum>(flags),
+                    .flags = static_cast<MetaGen::Shared::ProximityTrigger::ProximityTriggerFlagEnum>(flags),
 
                     .mapID = mapID,
                     .position = vec3(posX, posY, posZ),
@@ -352,16 +355,16 @@ namespace ECS::Systems
             creatureTransform.scale = event.scale;
 
             auto& objectFields = world.Emplace<Components::ObjectFields>(entity);
-            objectFields.fields.SetField(Generated::ObjectNetFieldsEnum::ObjectGUIDLow, objectInfo.guid);
-            objectFields.fields.SetField(Generated::ObjectNetFieldsEnum::Scale, 1.0f);
+            objectFields.fields.SetField(MetaGen::Shared::NetField::ObjectNetFieldEnum::ObjectGUIDLow, objectInfo.guid);
+            objectFields.fields.SetField(MetaGen::Shared::NetField::ObjectNetFieldEnum::Scale, 1.0f);
 
             auto& unitFields = world.Emplace<Components::UnitFields>(entity);
 
-            constexpr u8 unitClassBytesOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::ClassByteOffset;
-            constexpr u8 unitClassBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::ClassBitOffset;
-            constexpr u8 unitClassBitSize = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::ClassBitSize;
-            unitFields.fields.SetField(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, 1);
-            unitFields.fields.SetField(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, GameDefine::UnitClass::Warrior, unitClassBytesOffset, unitClassBitOffset, unitClassBitSize);
+            constexpr u8 unitClassBytesOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::ClassByteOffset;
+            constexpr u8 unitClassBitOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::ClassBitOffset;
+            constexpr u8 unitClassBitSize = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::ClassBitSize;
+            unitFields.fields.SetField(MetaGen::Shared::NetField::UnitNetFieldEnum::LevelRaceGenderClassPacked, 1);
+            unitFields.fields.SetField(MetaGen::Shared::NetField::UnitNetFieldEnum::LevelRaceGenderClassPacked, GameDefine::UnitClass::Warrior, unitClassBytesOffset, unitClassBitOffset, unitClassBitSize);
             Util::Unit::UpdateDisplayID(*world.registry, entity, unitFields, creatureTemplate->displayID);
 
             auto& visualItems = world.Emplace<Components::UnitVisualItems>(entity);
@@ -370,12 +373,12 @@ namespace ECS::Systems
 
             Components::UnitPowersComponent& unitPowersComponent = Util::Unit::AddPowersComponent(world, entity, GameDefine::UnitClass::Paladin);
             {
-                UnitPower& healthPower = Util::Unit::GetPower(unitPowersComponent, Generated::PowerTypeEnum::Health);
+                UnitPower& healthPower = Util::Unit::GetPower(unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Health);
                 healthPower.base *= creatureTemplate->healthMod;
                 healthPower.current *= creatureTemplate->healthMod;
                 healthPower.max *= creatureTemplate->healthMod;
 
-                UnitPower& manaPower = Util::Unit::GetPower(unitPowersComponent, Generated::PowerTypeEnum::Mana);
+                UnitPower& manaPower = Util::Unit::GetPower(unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Mana);
                 manaPower.base *= creatureTemplate->resourceMod;
                 manaPower.current *= creatureTemplate->resourceMod;
                 manaPower.max *= creatureTemplate->resourceMod;
@@ -421,7 +424,7 @@ namespace ECS::Systems
         auto removeScriptView = world.View<const Components::ObjectInfo, Events::CreatureRemoveScript>();
         removeScriptView.each([&](entt::entity entity, const Components::ObjectInfo& objectInfo)
         {
-            zenith->CallEvent(Generated::LuaCreatureAIEventEnum::OnDeinit, Generated::LuaCreatureAIEventDataOnDeinit{
+            zenith->CallEvent(MetaGen::Server::Lua::CreatureAIEvent::OnDeinit, MetaGen::Server::Lua::CreatureAIEventDataOnDeinit{
                 .creatureEntity = entt::to_integral(entity)
             });
             
@@ -448,7 +451,7 @@ namespace ECS::Systems
             creatureAIInfo.scriptName = event.scriptName;
             creatureAIState.creatureGUIDToScriptNameHash[objectInfo.guid] = scriptNameHash;
         
-            zenith->CallEvent(Generated::LuaCreatureAIEventEnum::OnInit, Generated::LuaCreatureAIEventDataOnInit{
+            zenith->CallEvent(MetaGen::Server::Lua::CreatureAIEvent::OnInit, MetaGen::Server::Lua::CreatureAIEventDataOnInit{
                 .creatureEntity = entt::to_integral(entity),
                 .scriptNameHash = scriptNameHash
             });
@@ -464,7 +467,7 @@ namespace ECS::Systems
         
             creatureAIInfo.timeToNextUpdate += 0.1f;
         
-            zenith->CallEvent(Generated::LuaCreatureAIEventEnum::OnUpdate, Generated::LuaCreatureAIEventDataOnUpdate{
+            zenith->CallEvent(MetaGen::Server::Lua::CreatureAIEvent::OnUpdate, MetaGen::Server::Lua::CreatureAIEventDataOnUpdate{
                 .creatureEntity = entt::to_integral(entity),
                 .deltaTime = 0.1f
             });
@@ -488,7 +491,7 @@ namespace ECS::Systems
 
             if (auto* creatureAIInfo = world.TryGet<Components::CreatureAIInfo>(entity))
             {
-                zenith->CallEvent(Generated::LuaCreatureAIEventEnum::OnDied, Generated::LuaCreatureAIEventDataOnDied{
+                zenith->CallEvent(MetaGen::Server::Lua::CreatureAIEvent::OnDied, MetaGen::Server::Lua::CreatureAIEventDataOnDied{
                     .creatureEntity = entt::to_integral(entity),
                     .killerEntity = entt::to_integral(event.killerEntity)
                 });
@@ -504,7 +507,7 @@ namespace ECS::Systems
 
             if (auto* creatureAIInfo = world.TryGet<Components::CreatureAIInfo>(entity))
             {
-                zenith->CallEvent(Generated::LuaCreatureAIEventEnum::OnResurrect, Generated::LuaCreatureAIEventDataOnResurrect{
+                zenith->CallEvent(MetaGen::Server::Lua::CreatureAIEvent::OnResurrect, MetaGen::Server::Lua::CreatureAIEventDataOnResurrect{
                     .creatureEntity = entt::to_integral(entity),
                     .resurrectorEntity = entt::to_integral(event.resurrectorEntity)
                 });
@@ -518,11 +521,11 @@ namespace ECS::Systems
             std::shared_ptr<Bytebuffer> buffer = Bytebuffer::Borrow<1024>();
 
             bool failed = false;
-            auto objectGUID = objectFields.fields.GetField<ObjectGUID>(Generated::ObjectNetFieldsEnum::ObjectGUIDLow);
+            auto objectGUID = objectFields.fields.GetField<ObjectGUID>(MetaGen::Shared::NetField::ObjectNetFieldEnum::ObjectGUIDLow);
 
             if (objectFields.fields.IsDirty())
             {
-                failed |= !Util::MessageBuilder::CreatePacket(buffer, (Network::OpcodeType)Generated::PacketListEnum::ServerObjectNetFieldUpdate, [&buffer, &objectFields, objectGUID]()
+                failed |= !Util::MessageBuilder::CreatePacket(buffer, (Network::OpcodeType)MetaGen::PacketListEnum::ServerObjectNetFieldUpdatePacket, [&buffer, &objectFields, objectGUID]()
                 {
                     buffer->Serialize(objectGUID);
                     objectFields.fields.SerializeDirtyFields(buffer.get());
@@ -531,7 +534,7 @@ namespace ECS::Systems
 
             if (unitFields.fields.IsDirty())
             {
-                failed |= !Util::MessageBuilder::CreatePacket(buffer, (Network::OpcodeType)Generated::PacketListEnum::ServerUnitNetFieldUpdate, [&buffer, &unitFields, objectGUID]()
+                failed |= !Util::MessageBuilder::CreatePacket(buffer, (Network::OpcodeType)MetaGen::PacketListEnum::ServerUnitNetFieldUpdatePacket, [&buffer, &unitFields, objectGUID]()
                 {
                     buffer->Serialize(objectGUID);
                     unitFields.fields.SerializeDirtyFields(buffer.get());
@@ -564,7 +567,7 @@ namespace ECS::Systems
 
             transaction.commit();
 
-            Generated::ServerTriggerRemovePacket triggerRemovePacket =
+            MetaGen::Shared::Packet::ServerTriggerRemovePacket triggerRemovePacket =
             {
                 .triggerID = event.triggerID
             };
@@ -572,7 +575,7 @@ namespace ECS::Systems
             std::shared_ptr<Bytebuffer> triggerRemoveBuffer = Bytebuffer::BorrowRuntime(sizeof(::Network::MessageHeader) + triggerRemovePacket.GetSerializedSize());
             Util::Network::AppendPacketToBuffer(triggerRemoveBuffer, triggerRemovePacket);
 
-            bool isServerSideOnly = (proximityTrigger.flags & Generated::ProximityTriggerFlagEnum::IsServerSideOnly) == Generated::ProximityTriggerFlagEnum::IsServerSideOnly;
+            bool isServerSideOnly = (proximityTrigger.flags & MetaGen::Shared::ProximityTrigger::ProximityTriggerFlagEnum::IsServerSideOnly) == MetaGen::Shared::ProximityTrigger::ProximityTriggerFlagEnum::IsServerSideOnly;
 
             for (const auto& [playerGUID, playerEntity] : world.playerVisData.GetGUIDToEntityMap())
             {
@@ -647,7 +650,7 @@ namespace ECS::Systems
             worldAABB.min = transform.position + aabb.centerPos - aabb.extents;
             worldAABB.max = transform.position + aabb.centerPos + aabb.extents;
 
-            bool isServerSideOnly = (proximityTrigger.flags & Generated::ProximityTriggerFlagEnum::IsServerSideOnly) != Generated::ProximityTriggerFlagEnum::None;
+            bool isServerSideOnly = (proximityTrigger.flags & MetaGen::Shared::ProximityTrigger::ProximityTriggerFlagEnum::IsServerSideOnly) != MetaGen::Shared::ProximityTrigger::ProximityTriggerFlagEnum::None;
             if (isServerSideOnly)
             {
                 world.Emplace<Tags::ProximityTriggerIsServerSideOnly>(entity);
@@ -656,7 +659,7 @@ namespace ECS::Systems
             {
                 world.Emplace<Tags::ProximityTriggerIsClientSide>(entity);
 
-                Generated::ServerTriggerAddPacket triggerAddPacket =
+                MetaGen::Shared::Packet::ServerTriggerAddPacket triggerAddPacket =
                 {
                     .triggerID = event.triggerID,
 
@@ -802,7 +805,7 @@ namespace ECS::Systems
                 {
                     visiblePlayers.erase(prevVisibleGUID);
 
-                    Util::Network::SendPacket(networkState, netInfo.socketID, Generated::UnitRemovePacket{
+                    Util::Network::SendPacket(networkState, netInfo.socketID, MetaGen::Shared::Packet::ServerUnitRemovePacket{
                         .guid = prevVisibleGUID
                     });
                 }
@@ -832,7 +835,7 @@ namespace ECS::Systems
                     {
                         visibleCreatures.erase(creatureGUID);
 
-                        if (!Util::Network::AppendPacketToBuffer(buffer, Generated::UnitRemovePacket{
+                        if (!Util::Network::AppendPacketToBuffer(buffer, MetaGen::Shared::Packet::ServerUnitRemovePacket{
                             .guid = creatureGUID
                         }))
                         {
@@ -944,10 +947,10 @@ namespace ECS::Systems
                     u16 numSlots = bag.GetTotalSlots();
                     u16 numFreeSlots = bag.GetFreeSlots();
 
-                    failed |= !Util::Network::AppendPacketToBuffer(containerUpdateBuffer, Generated::ContainerAddPacket{
+                    failed |= !Util::Network::AppendPacketToBuffer(containerUpdateBuffer, MetaGen::Shared::Packet::ServerContainerAddPacket{
+                        .guid = equipmentContainerItem.objectGUID,
                         .index = containerIndex,
                         .itemID = containerItemInstance->itemID,
-                        .guid = equipmentContainerItem.objectGUID,
                         .numSlots = numSlots,
                         .numFreeSlots = numFreeSlots
                     });
@@ -971,17 +974,17 @@ namespace ECS::Systems
 
                     if (containerItem.IsEmpty())
                     {
-                        failed |= !Util::Network::AppendPacketToBuffer(containerUpdateBuffer, Generated::ContainerRemoveFromSlotPacket{
+                        failed |= !Util::Network::AppendPacketToBuffer(containerUpdateBuffer, MetaGen::Shared::Packet::ServerContainerRemoveFromSlotPacket{
                             .index = containerIndex,
                             .slot = slotIndex
                         });
                     }
                     else
                     {
-                        failed |= !Util::Network::AppendPacketToBuffer(containerUpdateBuffer, Generated::ContainerAddToSlotPacket{
+                        failed |= !Util::Network::AppendPacketToBuffer(containerUpdateBuffer, MetaGen::Shared::Packet::ServerContainerAddToSlotPacket{
+                            .guid = containerItem.objectGUID,
                             .index = containerIndex,
-                            .slot = slotIndex,
-                            .guid = containerItem.objectGUID
+                            .slot = slotIndex
                         });
                     }
                 }
@@ -996,10 +999,10 @@ namespace ECS::Systems
                     u16 numSlots = playerContainers.equipment.GetTotalSlots();
                     u16 numFreeSlots = playerContainers.equipment.GetFreeSlots();
 
-                    failed |= !Util::Network::AppendPacketToBuffer(containerUpdateBuffer, Generated::ContainerAddPacket{
+                    failed |= !Util::Network::AppendPacketToBuffer(containerUpdateBuffer, MetaGen::Shared::Packet::ServerContainerAddPacket{
+                        .guid = ObjectGUID::Empty,
                         .index = PLAYER_BASE_CONTAINER_ID,
                         .itemID = 0,
-                        .guid = ObjectGUID::Empty,
                         .numSlots = numSlots,
                         .numFreeSlots = numFreeSlots
                     });
@@ -1024,17 +1027,17 @@ namespace ECS::Systems
 
                     if (isContainerItemEmpty)
                     {
-                        failed |= !Util::Network::AppendPacketToBuffer(containerUpdateBuffer, Generated::ContainerRemoveFromSlotPacket{
+                        failed |= !Util::Network::AppendPacketToBuffer(containerUpdateBuffer, MetaGen::Shared::Packet::ServerContainerRemoveFromSlotPacket{
                             .index = PLAYER_BASE_CONTAINER_ID,
                             .slot = slotIndex
                         });
                     }
                     else
                     {
-                        failed |= !Util::Network::AppendPacketToBuffer(containerUpdateBuffer, Generated::ContainerAddToSlotPacket{
+                        failed |= !Util::Network::AppendPacketToBuffer(containerUpdateBuffer, MetaGen::Shared::Packet::ServerContainerAddToSlotPacket{
+                            .guid = containerItem.objectGUID,
                             .index = PLAYER_BASE_CONTAINER_ID,
-                            .slot = slotIndex,
-                            .guid = containerItem.objectGUID
+                            .slot = slotIndex
                         });
                     }
 
@@ -1051,7 +1054,7 @@ namespace ECS::Systems
                             itemID = itemInstance->itemID;
                         }
 
-                        failed |= !Util::Network::AppendPacketToBuffer(equippedItemsBuffer, Generated::ServerUnitEquippedItemUpdatePacket{
+                        failed |= !Util::Network::AppendPacketToBuffer(equippedItemsBuffer, MetaGen::Shared::Packet::ServerUnitEquippedItemUpdatePacket{
                             .guid = objectInfo.guid,
                             .slot = static_cast<u8>(slotIndex),
                             .itemID = itemID
@@ -1086,7 +1089,7 @@ namespace ECS::Systems
         {
             for (ItemEquipSlot_t slot : visualItems.dirtyItemIDs)
             {
-                ECS::Util::Network::SendToNearby(networkState, world, entity, visibilityInfo, true, Generated::ServerUnitVisualItemUpdatePacket{
+                ECS::Util::Network::SendToNearby(networkState, world, entity, visibilityInfo, true, MetaGen::Shared::Packet::ServerUnitVisualItemUpdatePacket{
                     .guid = objectInfo.guid,
                     .slot = slot,
                     .itemID = visualItems.equippedItemIDs[slot]
@@ -1107,7 +1110,7 @@ namespace ECS::Systems
 
             if (auto* creatureAIInfo = world.TryGet<Components::CreatureAIInfo>(entity))
             {
-                zenith->CallEvent(Generated::LuaCreatureAIEventEnum::OnEnterCombat, Generated::LuaCreatureAIEventDataOnEnterCombat{
+                zenith->CallEvent(MetaGen::Server::Lua::CreatureAIEvent::OnEnterCombat, MetaGen::Server::Lua::CreatureAIEventDataOnEnterCombat{
                     .creatureEntity = entt::to_integral(entity)
                 });
             }
@@ -1169,7 +1172,7 @@ namespace ECS::Systems
 
             if (auto* creatureAIInfo = world.TryGet<Components::CreatureAIInfo>(entity))
             {
-                zenith->CallEvent(Generated::LuaCreatureAIEventEnum::OnLeaveCombat, Generated::LuaCreatureAIEventDataOnLeaveCombat{
+                zenith->CallEvent(MetaGen::Server::Lua::CreatureAIEvent::OnLeaveCombat, MetaGen::Server::Lua::CreatureAIEventDataOnLeaveCombat{
                     .creatureEntity = entt::to_integral(entity)
                 });
             }
@@ -1184,7 +1187,7 @@ namespace ECS::Systems
 
                 transform.pitchYaw.y = 0.0f;
 
-                ECS::Util::Network::SendToNearby(networkState, world, entity, visibilityInfo, false, Generated::ServerUnitMovePacket{
+                ECS::Util::Network::SendToNearby(networkState, world, entity, visibilityInfo, false, MetaGen::Shared::Packet::ServerUnitMovePacket{
                     .guid = objectInfo.guid,
                     .movementFlags = 0x32,
                     .position = transform.position,
@@ -1334,7 +1337,7 @@ namespace ECS::Systems
             if (visitedCount > 0)
                 unitFollowPath.polyRefCurrent = visited[visitedCount - 1];
 
-            ECS::Util::Network::SendToNearby(networkState, world, entity, visibilityInfo, false, Generated::ServerUnitMovePacket{
+            ECS::Util::Network::SendToNearby(networkState, world, entity, visibilityInfo, false, MetaGen::Shared::Packet::ServerUnitMovePacket{
                 .guid = objectInfo.guid,
                 .movementFlags = 0x33,
                 .position = transform.position,
@@ -1362,14 +1365,14 @@ namespace ECS::Systems
             if (world.AllOf<Tags::IsInCombat>(entity))
                 return;
 
-            UnitPower& healthPower = Util::Unit::GetPower(unitPowersComponent, Generated::PowerTypeEnum::Health);
+            UnitPower& healthPower = Util::Unit::GetPower(unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Health);
             
             bool isCreature = world.AllOf<Tags::IsCreature>(entity);
             f64 baseRegenRate = isCreature ? (healthPower.base * 0.75) : (healthPower.base * 0.01);
             f64 regenAmount = baseRegenRate * HEALTH_REGEN_INTERVAL;
 
             f64 newHealth = glm::clamp(healthPower.current + regenAmount, healthPower.current, healthPower.max);
-            Util::Unit::SetPower(world, entity, unitPowersComponent, Generated::PowerTypeEnum::Health, healthPower.base, newHealth, healthPower.max);
+            Util::Unit::SetPower(world, entity, unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Health, healthPower.base, newHealth, healthPower.max);
         });
 
         auto powerUpdateView = world.View<Components::ObjectInfo, Components::UnitPowersComponent>();
@@ -1377,13 +1380,13 @@ namespace ECS::Systems
         {
             for (auto& pair : unitPowersComponent.powerTypeToValue)
             {
-                Generated::PowerTypeEnum powerType = pair.first;
+                MetaGen::Shared::Unit::PowerTypeEnum powerType = pair.first;
                 UnitPower& power = pair.second;
-                if (powerType == Generated::PowerTypeEnum::Health)
+                if (powerType == MetaGen::Shared::Unit::PowerTypeEnum::Health)
                     continue;
 
                 // Mana Regen
-                if (powerType == Generated::PowerTypeEnum::Mana)
+                if (powerType == MetaGen::Shared::Unit::PowerTypeEnum::Mana)
                 {
                     if (power.current >= power.max)
                         continue;
@@ -1394,7 +1397,7 @@ namespace ECS::Systems
                     Util::Unit::SetPower(world, entity, unitPowersComponent, powerType, power.base, newMana, power.max);
                 }
                 // Focus/Energy Regen
-                else if (powerType == Generated::PowerTypeEnum::Focus || powerType == Generated::PowerTypeEnum::Energy)
+                else if (powerType == MetaGen::Shared::Unit::PowerTypeEnum::Focus || powerType == MetaGen::Shared::Unit::PowerTypeEnum::Energy)
                 {
                     if (power.current >= power.max)
                         continue;
@@ -1405,7 +1408,7 @@ namespace ECS::Systems
                     Util::Unit::SetPower(world, entity, unitPowersComponent, powerType, power.base, newEnergy, power.max);
                 }
                 // Rage Regen
-                else if (powerType == Generated::PowerTypeEnum::Rage)
+                else if (powerType == MetaGen::Shared::Unit::PowerTypeEnum::Rage)
                 {
                     bool isInCombat = world.AllOf<Tags::IsInCombat>(entity);
                     f64 baseRegenRate = (1.0 * isInCombat) + (-1.0 * !isInCombat);
@@ -1432,11 +1435,11 @@ namespace ECS::Systems
         auto dirtyPowerView = world.View<const Components::ObjectInfo, const Components::VisibilityInfo, Components::UnitPowersComponent, Events::UnitNeedsPowerUpdate>();
         dirtyPowerView.each([&](entt::entity entity, const Components::ObjectInfo& objectInfo, const Components::VisibilityInfo& visibilityInfo, Components::UnitPowersComponent& unitPowersComponent)
         {
-            for (Generated::PowerTypeEnum dirtyPowerType : unitPowersComponent.dirtyPowerTypes)
+            for (MetaGen::Shared::Unit::PowerTypeEnum dirtyPowerType : unitPowersComponent.dirtyPowerTypes)
             {
                 UnitPower& power = Util::Unit::GetPower(unitPowersComponent, dirtyPowerType);
 
-                ECS::Util::Network::SendToNearby(networkState, world, entity, visibilityInfo, true, Generated::UnitPowerUpdatePacket{
+                ECS::Util::Network::SendToNearby(networkState, world, entity, visibilityInfo, true, MetaGen::Shared::Packet::ServerUnitPowerUpdatePacket{
                     .guid = objectInfo.guid,
                     .kind = static_cast<u8>(dirtyPowerType),
                     .base = power.base,
@@ -1451,11 +1454,11 @@ namespace ECS::Systems
         auto dirtyResistanceView = world.View<const Components::ObjectInfo, const Components::NetInfo, Components::UnitResistancesComponent, Events::CharacterNeedsResistanceUpdate>();
         dirtyResistanceView.each([&](entt::entity entity, const Components::ObjectInfo& objectInfo, const Components::NetInfo& netInfo, Components::UnitResistancesComponent& unitResistancesComponent)
         {
-            for (Generated::ResistanceTypeEnum dirtyResistanceType : unitResistancesComponent.dirtyResistanceTypes)
+            for (MetaGen::Shared::Unit::ResistanceTypeEnum dirtyResistanceType : unitResistancesComponent.dirtyResistanceTypes)
             {
                 UnitResistance& resistance = Util::Unit::GetResistance(unitResistancesComponent, dirtyResistanceType);
 
-                ECS::Util::Network::SendPacket(networkState, netInfo.socketID, Generated::UnitResistanceUpdatePacket{
+                ECS::Util::Network::SendPacket(networkState, netInfo.socketID, MetaGen::Shared::Packet::ServerUnitResistanceUpdatePacket{
                     .kind = static_cast<u8>(dirtyResistanceType),
                     .base = resistance.base,
                     .current = resistance.current,
@@ -1469,11 +1472,11 @@ namespace ECS::Systems
         auto dirtyStatsView = world.View<const Components::ObjectInfo, const Components::NetInfo, Components::UnitStatsComponent, Events::CharacterNeedsStatUpdate>();
         dirtyStatsView.each([&](entt::entity entity, const Components::ObjectInfo& objectInfo, const Components::NetInfo& netInfo, Components::UnitStatsComponent& unitStatsComponent)
         {
-            for (Generated::StatTypeEnum dirtyStatType : unitStatsComponent.dirtyStatTypes)
+            for (MetaGen::Shared::Unit::StatTypeEnum dirtyStatType : unitStatsComponent.dirtyStatTypes)
             {
                 UnitStat& stat = Util::Unit::GetStat(unitStatsComponent, dirtyStatType);
 
-                ECS::Util::Network::SendPacket(networkState, netInfo.socketID, Generated::UnitStatUpdatePacket{
+                ECS::Util::Network::SendPacket(networkState, netInfo.socketID, MetaGen::Shared::Packet::ServerUnitStatUpdatePacket{
                     .kind = static_cast<u8>(dirtyStatType),
                     .base = stat.base,
                     .current = stat.current
@@ -1529,8 +1532,8 @@ namespace ECS::Systems
                 auraEffect.miscValue3 = spellEffect.effectMiscValue3;
 
                 // TODO : Provide a better way to determine if an effect is periodic
-                if (auraEffect.type != (u8)Generated::SpellEffectTypeEnum::AuraPeriodicDamage &&
-                    auraEffect.type != (u8)Generated::SpellEffectTypeEnum::AuraPeriodicHeal)
+                if (auraEffect.type != (u8)MetaGen::Shared::Spell::SpellEffectTypeEnum::AuraPeriodicDamage &&
+                    auraEffect.type != (u8)MetaGen::Shared::Spell::SpellEffectTypeEnum::AuraPeriodicHeal)
                     continue;
 
                 auraEffectInfo.periodicEffectsMask |= (1ull << i);
@@ -1548,7 +1551,7 @@ namespace ECS::Systems
                 world.Emplace<Tags::IsPeriodicAura>(entity);
 
             // Handle Prepare Spell
-            bool prepared = zenith->CallEventBool(Generated::LuaAuraEventEnum::OnApply, Generated::LuaAuraEventDataOnApply{
+            bool prepared = zenith->CallEventBool(MetaGen::Server::Lua::AuraEvent::OnApply, MetaGen::Server::Lua::AuraEventDataOnApply{
                 .casterID = entt::to_integral(casterEntity),
                 .targetID = entt::to_integral(targetEntity),
                 .auraEntity = entt::to_integral(entity),
@@ -1561,7 +1564,7 @@ namespace ECS::Systems
                 auto& spellProcInfo = world.Get<Components::SpellProcInfo>(entity);
                 procEffectsMask = spellProcInfo.procEffectsMask;
 
-                Util::Spell::CheckAuraProc(world, zenith, timeState, gameCache, auraEffectInfo, spellProcInfo, Generated::SpellProcPhaseTypeEnum::OnAuraApply, auraInfo.spellID, entity, casterEntity, targetEntity);
+                Util::Spell::CheckAuraProc(world, zenith, timeState, gameCache, auraEffectInfo, spellProcInfo, MetaGen::Shared::Spell::SpellProcPhaseTypeEnum::OnAuraApply, auraInfo.spellID, entity, casterEntity, targetEntity);
             }
             
             if (!prepared)
@@ -1583,7 +1586,7 @@ namespace ECS::Systems
                 if (isProcEffect || isPeriodicAura)
                     continue;
 
-                zenith->CallEvent(Generated::LuaAuraEventEnum::OnHandleEffect, Generated::LuaAuraEventDataOnHandleEffect{
+                zenith->CallEvent(MetaGen::Server::Lua::AuraEvent::OnHandleEffect, MetaGen::Server::Lua::AuraEventDataOnHandleEffect{
                     .casterID = entt::to_integral(casterEntity),
                     .targetID = entt::to_integral(targetEntity),
                     .auraEntity = entt::to_integral(entity),
@@ -1600,7 +1603,7 @@ namespace ECS::Systems
 
             auto& objectInfo = world.Get<Components::ObjectInfo>(targetEntity);
             auto& visibilityInfo = world.Get<Components::VisibilityInfo>(targetEntity);
-            ECS::Util::Network::SendToNearby(networkState, world, targetEntity, visibilityInfo, true, Generated::ServerUnitAddAuraPacket{           
+            ECS::Util::Network::SendToNearby(networkState, world, targetEntity, visibilityInfo, true, MetaGen::Shared::Packet::ServerUnitAddAuraPacket{
                 .guid = objectInfo.guid,
                 .auraInstanceID = entt::to_integral(entity),
                 .spellID = auraInfo.spellID,
@@ -1623,7 +1626,7 @@ namespace ECS::Systems
                 return;
             }
 
-            zenith->CallEvent(Generated::LuaAuraEventEnum::OnApply, Generated::LuaAuraEventDataOnApply{
+            zenith->CallEvent(MetaGen::Server::Lua::AuraEvent::OnApply, MetaGen::Server::Lua::AuraEventDataOnApply{
                 .casterID = entt::to_integral(casterEntity),
                 .targetID = entt::to_integral(targetEntity),
                 .auraEntity = entt::to_integral(entity),
@@ -1632,12 +1635,12 @@ namespace ECS::Systems
 
             if (auto* spellProcInfo = world.TryGet<Components::SpellProcInfo>(entity))
             {
-                Util::Spell::CheckAuraProc(world, zenith, timeState, gameCache, auraEffectInfo, *spellProcInfo, Generated::SpellProcPhaseTypeEnum::OnAuraApply, auraInfo.spellID, entity, casterEntity, targetEntity);
+                Util::Spell::CheckAuraProc(world, zenith, timeState, gameCache, auraEffectInfo, *spellProcInfo, MetaGen::Shared::Spell::SpellProcPhaseTypeEnum::OnAuraApply, auraInfo.spellID, entity, casterEntity, targetEntity);
             }
 
             auto& objectInfo = world.Get<Components::ObjectInfo>(targetEntity);
             auto& visibilityInfo = world.Get<Components::VisibilityInfo>(targetEntity);
-            ECS::Util::Network::SendToNearby(networkState, world, targetEntity, visibilityInfo, true, Generated::ServerUnitUpdateAuraPacket{
+            ECS::Util::Network::SendToNearby(networkState, world, targetEntity, visibilityInfo, true, MetaGen::Shared::Packet::ServerUnitUpdateAuraPacket{
                 .guid = objectInfo.guid,
                 .auraInstanceID = entt::to_integral(entity),
                 .duration = auraInfo.timeRemaining,
@@ -1677,7 +1680,7 @@ namespace ECS::Systems
                     {
                         const AuraEffect& auraEffect = auraEffectInfo.effects[periodicInfo.index];
 
-                        zenith->CallEvent(Generated::LuaAuraEventEnum::OnHandleEffect, Generated::LuaAuraEventDataOnHandleEffect{
+                        zenith->CallEvent(MetaGen::Server::Lua::AuraEvent::OnHandleEffect, MetaGen::Server::Lua::AuraEventDataOnHandleEffect{
                             .casterID = entt::to_integral(casterEntity),
                             .targetID = entt::to_integral(targetEntity),
                             .auraEntity = entt::to_integral(entity),
@@ -1713,7 +1716,7 @@ namespace ECS::Systems
             {
                 auto& characterAuraInfo = world.Get<Components::UnitAuraInfo>(targetEntity);
 
-                zenith->CallEvent(Generated::LuaAuraEventEnum::OnRemove, Generated::LuaAuraEventDataOnRemove{
+                zenith->CallEvent(MetaGen::Server::Lua::AuraEvent::OnRemove, MetaGen::Server::Lua::AuraEventDataOnRemove{
                     .casterID = entt::to_integral(casterEntity),
                     .targetID = entt::to_integral(targetEntity),
                     .auraEntity = entt::to_integral(entity),
@@ -1722,7 +1725,7 @@ namespace ECS::Systems
 
                 if (auto* spellProcInfo = world.TryGet<Components::SpellProcInfo>(entity))
                 {
-                    Util::Spell::CheckAuraProc(world, zenith, timeState, gameCache, auraEffectInfo, *spellProcInfo, Generated::SpellProcPhaseTypeEnum::OnAuraRemove, auraInfo.spellID, entity, casterEntity, targetEntity);
+                    Util::Spell::CheckAuraProc(world, zenith, timeState, gameCache, auraEffectInfo, *spellProcInfo, MetaGen::Shared::Spell::SpellProcPhaseTypeEnum::OnAuraRemove, auraInfo.spellID, entity, casterEntity, targetEntity);
                 }
 
                 // Remove from active auras
@@ -1732,7 +1735,7 @@ namespace ECS::Systems
 
                 auto& objectInfo = world.Get<Components::ObjectInfo>(targetEntity);
                 auto& visibilityInfo = world.Get<Components::VisibilityInfo>(targetEntity);
-                ECS::Util::Network::SendToNearby(networkState, world, targetEntity, visibilityInfo, true, Generated::ServerUnitRemoveAuraPacket{
+                ECS::Util::Network::SendToNearby(networkState, world, targetEntity, visibilityInfo, true, MetaGen::Shared::Packet::ServerUnitRemoveAuraPacket{
                     .guid = objectInfo.guid,
                     .auraInstanceID = entt::to_integral(entity)
                 });
@@ -1770,7 +1773,7 @@ namespace ECS::Systems
             }
 
             // Handle Prepare Spell
-            bool prepared = zenith->CallEventBool(Generated::LuaSpellEventEnum::OnPrepare, Generated::LuaSpellEventDataOnPrepare{
+            bool prepared = zenith->CallEventBool(MetaGen::Server::Lua::SpellEvent::OnPrepare, MetaGen::Server::Lua::SpellEventDataOnPrepare{
                 .casterID = entt::to_integral(casterEntity),
                 .spellEntity = entt::to_integral(entity),
                 .spellID = spellInfo.spellID
@@ -1785,13 +1788,13 @@ namespace ECS::Systems
             if (Util::Spell::SetupSpellProcInfo(world, gameCache, spellInfo.spellID, entity))
             {
                 auto& spellProcInfo = world.Get<Components::SpellProcInfo>(entity);
-                Util::Spell::CheckSpellProc(world, zenith, timeState, gameCache, spellEffectInfo, spellProcInfo, Generated::SpellProcPhaseTypeEnum::OnSpellCast, spellInfo.spellID, entity, casterEntity);
+                Util::Spell::CheckSpellProc(world, zenith, timeState, gameCache, spellEffectInfo, spellProcInfo, MetaGen::Shared::Spell::SpellProcPhaseTypeEnum::OnSpellCast, spellInfo.spellID, entity, casterEntity);
             }
 
             auto& visibilityInfo = world.Get<Components::VisibilityInfo>(casterEntity);
-            ECS::Util::Network::SendToNearby(networkState, world, casterEntity, visibilityInfo, true, Generated::UnitCastSpellPacket{
-                .spellID = spellInfo.spellID,
+            ECS::Util::Network::SendToNearby(networkState, world, casterEntity, visibilityInfo, true, MetaGen::Shared::Packet::ServerUnitCastSpellPacket{
                 .guid = spellInfo.caster,
+                .spellID = spellInfo.spellID,
                 .castTime = spellInfo.castTime,
                 .timeToCast = spellInfo.timeToCast
             });
@@ -1822,7 +1825,7 @@ namespace ECS::Systems
                 u8 effectIndex = std::countr_zero(regularEffectMask);
 
                 const GameDefine::Database::SpellEffect& spellEffect = spellEffectInfo.effects[effectIndex];
-                zenith->CallEvent(Generated::LuaSpellEventEnum::OnHandleEffect, Generated::LuaSpellEventDataOnHandleEffect{
+                zenith->CallEvent(MetaGen::Server::Lua::SpellEvent::OnHandleEffect, MetaGen::Server::Lua::SpellEventDataOnHandleEffect{
                     .casterID = entt::to_integral(casterEntity),
                     .spellEntity = entt::to_integral(entity),
                     .spellID = spellInfo.spellID,
@@ -1853,7 +1856,7 @@ namespace ECS::Systems
                 return;
             }
 
-            zenith->CallEvent(Generated::LuaSpellEventEnum::OnFinish, Generated::LuaSpellEventDataOnFinish{
+            zenith->CallEvent(MetaGen::Server::Lua::SpellEvent::OnFinish, MetaGen::Server::Lua::SpellEventDataOnFinish{
                 .casterID = entt::to_integral(casterEntity),
                 .spellEntity = entt::to_integral(entity),
                 .spellID = spellInfo.spellID
@@ -1861,7 +1864,7 @@ namespace ECS::Systems
 
             if (auto* spellProcInfo = world.TryGet<Components::SpellProcInfo>(entity))
             {
-                Util::Spell::CheckSpellProc(world, zenith, timeState, gameCache, spellEffectInfo, *spellProcInfo, Generated::SpellProcPhaseTypeEnum::OnSpellFinish, spellInfo.spellID, entity, casterEntity);
+                Util::Spell::CheckSpellProc(world, zenith, timeState, gameCache, spellEffectInfo, *spellProcInfo, MetaGen::Shared::Spell::SpellProcPhaseTypeEnum::OnSpellFinish, spellInfo.spellID, entity, casterEntity);
             }
 
             if (auto* characterSpellCastInfo = world.TryGet<Components::CharacterSpellCastInfo>(casterEntity))
@@ -1907,7 +1910,7 @@ namespace ECS::Systems
             }
 
             auto& unitPowersComponent = world.Get<Components::UnitPowersComponent>(targetEntity);
-            UnitPower& healthPower = Util::Unit::GetPower(unitPowersComponent, Generated::PowerTypeEnum::Health);
+            UnitPower& healthPower = Util::Unit::GetPower(unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Health);
             bool isDead = (healthPower.current <= 0.0);
 
             bool builtMessage = false;
@@ -1936,7 +1939,7 @@ namespace ECS::Systems
 
                     bool killedTarget = overKillDamage > 0 || damageDone == healthPower.current;
                     f64 newHealth = healthPower.current - damageDone;
-                    Util::Unit::SetPower(world, targetEntity, unitPowersComponent, Generated::PowerTypeEnum::Health, healthPower.base, newHealth, healthPower.max);
+                    Util::Unit::SetPower(world, targetEntity, unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Health, healthPower.base, newHealth, healthPower.max);
 
                     builtMessage = Util::MessageBuilder::CombatLog::BuildDamageDealtMessage(combatEventBuffer, eventInfo.sourceGUID, eventInfo.targetGUID, damageDone, overKillDamage);
                     
@@ -1970,7 +1973,7 @@ namespace ECS::Systems
                     }
 
                     f64 newHealth = healthPower.current + healingDone;
-                    Util::Unit::SetPower(world, targetEntity, unitPowersComponent, Generated::PowerTypeEnum::Health, healthPower.base, newHealth, healthPower.max);
+                    Util::Unit::SetPower(world, targetEntity, unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Health, healthPower.base, newHealth, healthPower.max);
 
                     builtMessage = Util::MessageBuilder::CombatLog::BuildHealingDoneMessage(combatEventBuffer, eventInfo.sourceGUID, eventInfo.targetGUID, healingDone, overHealing);
 
@@ -1984,7 +1987,7 @@ namespace ECS::Systems
                         break;
 
                     f64 newHealth = healthPower.max;
-                    Util::Unit::SetPower(world, targetEntity, unitPowersComponent, Generated::PowerTypeEnum::Health, healthPower.base, newHealth, healthPower.max);
+                    Util::Unit::SetPower(world, targetEntity, unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Health, healthPower.base, newHealth, healthPower.max);
 
                     builtMessage = Util::MessageBuilder::CombatLog::BuildResurrectedMessage(combatEventBuffer, eventInfo.sourceGUID, eventInfo.targetGUID, missingHealth);
 
@@ -2055,10 +2058,10 @@ namespace ECS::Systems
 
                 Util::Cache::CharacterCreate(gameCache, request.characterID, request.characterName, characterEntity);
 
-                Util::Network::SendPacket(networkState, request.socketID, Generated::ServerWorldTransferPacket{
+                Util::Network::SendPacket(networkState, request.socketID, MetaGen::Shared::Packet::ServerWorldTransferPacket{
                 });
 
-                Util::Network::SendPacket(networkState, request.socketID, Generated::ServerLoadMapPacket{
+                Util::Network::SendPacket(networkState, request.socketID, MetaGen::Shared::Packet::ServerLoadMapPacket{
                     .mapID = request.targetMapID
                 });
 

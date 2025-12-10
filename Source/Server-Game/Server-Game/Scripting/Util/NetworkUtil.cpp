@@ -1,7 +1,7 @@
 #include "NetworkUtil.h"
 #include "Server-Game/Scripting/Handlers/PacketHandler.h"
 
-#include <Meta/Generated/Shared/PacketList.h>
+#include <MetaGen/PacketList.h>
 
 #include <Scripting/Zenith.h>
 
@@ -9,7 +9,7 @@ namespace Scripting::Util::Network
 {
     bool HasPacketHandler(Zenith* zenith, ::Network::OpcodeType opcode)
     {
-        bool hasEventCallback = zenith->HasEventCallbackRaw(Generated::PacketListEnumMeta::EnumID, opcode, 0);
+        bool hasEventCallback = zenith->HasEventCallbackRaw(MetaGen::PacketListEnumMeta::ENUM_ID, opcode, 0);
         return hasEventCallback;
     }
 
@@ -17,7 +17,7 @@ namespace Scripting::Util::Network
     {
         ZenithEventState& zenithEventState = zenith->eventState;
 
-        u16 eventTypeID = Generated::PacketListEnumMeta::EnumID;
+        u16 eventTypeID = MetaGen::PacketListEnumMeta::ENUM_ID;
         u16 eventDataID = 0;
         u16 eventTypeVal = header.opcode;
 

@@ -9,7 +9,7 @@ namespace Scripting
 {
     namespace Event::Spell
     {
-        void OnSpellPrepare(Zenith* zenith, Generated::LuaSpellEventDataOnPrepare& data)
+        void OnSpellPrepare(Zenith* zenith, MetaGen::Server::Lua::SpellEventDataOnPrepare& data)
         {
             zenith->CreateTable();
 
@@ -19,7 +19,7 @@ namespace Scripting
             auto* spell = Game::Spell::Create(zenith, static_cast<entt::entity>(data.spellEntity), data.spellID);
             zenith->SetTableKey("spell");
         }
-        void OnSpellHandleEffect(Zenith* zenith, Generated::LuaSpellEventDataOnHandleEffect& data)
+        void OnSpellHandleEffect(Zenith* zenith, MetaGen::Server::Lua::SpellEventDataOnHandleEffect& data)
         {
             zenith->CreateTable();
 
@@ -37,7 +37,7 @@ namespace Scripting
                 zenith->AddTableField("procID", data.procID);
             }
         }
-        void OnSpellFinish(Zenith* zenith, Generated::LuaSpellEventDataOnFinish& data)
+        void OnSpellFinish(Zenith* zenith, MetaGen::Server::Lua::SpellEventDataOnFinish& data)
         {
             zenith->CreateTable();
 

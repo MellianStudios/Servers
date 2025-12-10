@@ -26,8 +26,8 @@
 #include <Base/Util/DebugHandler.h>
 #include <Base/Util/StringUtils.h>
 
-#include <Meta/Generated/Shared/NetworkPacket.h>
-#include <Meta/Generated/Shared/PacketList.h>
+#include <MetaGen/PacketList.h>
+#include <MetaGen/Shared/Packet/Packet.h>
 
 #include <Network/Server.h>
 
@@ -72,7 +72,7 @@ namespace ECS::Systems
                     pqxx::bytes blob = databaseConn->connection->unesc_bin(raw);
                     if (blob.size() != crypto_spake_STOREDBYTES)
                     {
-                        Util::Network::SendPacket(networkState, socketID, Generated::ConnectResultPacket{
+                        Util::Network::SendPacket(networkState, socketID, MetaGen::Shared::Packet::ServerConnectResultPacket{
                             .result = static_cast<u8>(Network::ConnectResult::Failed)
                         });
 
@@ -99,9 +99,9 @@ namespace ECS::Systems
                     i32 result = crypto_spake_step0(&authInfo.serverState, public_data, authInfo.blob);
                     if (result != 0)
                     {
-                        Util::Network::SendPacket(networkState, socketID, Generated::ConnectResultPacket{
+                        Util::Network::SendPacket(networkState, socketID, MetaGen::Shared::Packet::ServerConnectResultPacket{
                             .result = static_cast<u8>(Network::ConnectResult::Failed)
-                            });
+                        });
 
                         networkState.server->CloseSocketID(socketID);
                         continue;
@@ -109,7 +109,7 @@ namespace ECS::Systems
 
                     // Send Public Data Packet
                     {
-                        Generated::ServerAuthChallengePacket challenge;
+                        MetaGen::Shared::Packet::ServerAuthChallengePacket challenge;
                         memcpy(challenge.challenge.data(), public_data, crypto_spake_PUBLICDATABYTES);
 
                         Util::Network::SendPacket(networkState, socketID, challenge);
@@ -119,7 +119,7 @@ namespace ECS::Systems
                 }
             }
 
-            Util::Network::SendPacket(networkState, socketID, Generated::ConnectResultPacket{
+            Util::Network::SendPacket(networkState, socketID, MetaGen::Shared::Packet::ServerConnectResultPacket{
                 .result = static_cast<u8>(Network::ConnectResult::Failed)
             });
 
@@ -139,7 +139,7 @@ namespace ECS::Systems
             characterListInfo.list.clear();
 
             std::shared_ptr<Bytebuffer> buffer = Bytebuffer::Borrow<1024>();
-            bool result = Util::MessageBuilder::CreatePacket(buffer, (Network::OpcodeType)Generated::PacketListEnum::ServerCharacterList, [&networkState, &databaseConn, &accountInfo, &characterListInfo, &buffer]()
+            bool result = Util::MessageBuilder::CreatePacket(buffer, (Network::OpcodeType)MetaGen::PacketListEnum::ServerCharacterListPacket, [&networkState, &databaseConn, &accountInfo, &characterListInfo, &buffer]()
             {
                 pqxx::result databaseResult;
                 if (Database::Util::Character::CharacterGetInfosByAccount(databaseConn, accountInfo.id, databaseResult))

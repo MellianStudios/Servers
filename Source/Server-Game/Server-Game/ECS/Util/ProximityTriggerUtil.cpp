@@ -7,7 +7,8 @@
 #include "Server-Game/ECS/Singletons/WorldState.h"
 #include "Server-Game/Util/ServiceLocator.h"
 
-#include <Meta/Generated/Server/LuaEvent.h>
+#include <MetaGen/EnumTraits.h>
+#include <MetaGen/Server/Lua/Lua.h>
 
 #include <Scripting/LuaManager.h>
 #include <Scripting/Zenith.h>
@@ -103,7 +104,7 @@ namespace ECS::Util::ProximityTrigger
         Scripting::LuaManager* luaManager = ServiceLocator::GetLuaManager();
         Scripting::Zenith* zenith = luaManager->GetZenithStateManager().Get(world.zenithKey);
 
-        zenith->CallEvent(Generated::LuaTriggerEventEnum::OnEnter, Generated::LuaTriggerEventDataOnEnter{
+        zenith->CallEvent(MetaGen::Server::Lua::TriggerEvent::OnEnter, MetaGen::Server::Lua::TriggerEventDataOnEnter{
             .triggerID = trigger.triggerID,
             .playerID = entt::to_integral(playerEntity)
         });
@@ -113,7 +114,7 @@ namespace ECS::Util::ProximityTrigger
         Scripting::LuaManager* luaManager = ServiceLocator::GetLuaManager();
         Scripting::Zenith* zenith = luaManager->GetZenithStateManager().Get(world.zenithKey);
 
-        zenith->CallEvent(Generated::LuaTriggerEventEnum::OnExit, Generated::LuaTriggerEventDataOnExit{
+        zenith->CallEvent(MetaGen::Server::Lua::TriggerEvent::OnExit, MetaGen::Server::Lua::TriggerEventDataOnExit{
             .triggerID = trigger.triggerID,
             .playerID = entt::to_integral(playerEntity)
         });
@@ -123,7 +124,7 @@ namespace ECS::Util::ProximityTrigger
         Scripting::LuaManager* luaManager = ServiceLocator::GetLuaManager();
         Scripting::Zenith* zenith = luaManager->GetZenithStateManager().Get(world.zenithKey);
 
-        zenith->CallEvent(Generated::LuaTriggerEventEnum::OnStay, Generated::LuaTriggerEventDataOnStay{
+        zenith->CallEvent(MetaGen::Server::Lua::TriggerEvent::OnStay, MetaGen::Server::Lua::TriggerEventDataOnStay{
             .triggerID = trigger.triggerID,
             .playerID = entt::to_integral(playerEntity)
         });

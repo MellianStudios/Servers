@@ -1,7 +1,7 @@
 #include "UnitHandler.h"
 #include "Server-Game/Scripting/Game/Unit.h"
 
-#include <Meta/Generated/Shared/UnitEnum.h>
+#include <MetaGen/Shared/Unit/Unit.h>
 
 #include <Scripting/Zenith.h>
 
@@ -15,9 +15,9 @@ namespace Scripting
 
         // PowerType Enum
         {
-            zenith->CreateTable(Generated::PowerTypeEnumMeta::EnumName.data());
+            zenith->CreateTable(MetaGen::Shared::Unit::PowerTypeEnumMeta::ENUM_NAME.data());
 
-            for (const auto& pair : Generated::PowerTypeEnumMeta::EnumList)
+            for (const auto& pair : MetaGen::Shared::Unit::PowerTypeEnumMeta::ENUM_FIELD_LIST)
             {
                 zenith->AddTableField(pair.first.data(), pair.second);
             }
@@ -27,9 +27,9 @@ namespace Scripting
 
         // StatType Enum
         {
-            zenith->CreateTable(Generated::StatTypeEnumMeta::EnumName.data());
+            zenith->CreateTable(MetaGen::Shared::Unit::StatTypeEnumMeta::ENUM_NAME.data());
 
-            for (const auto& pair : Generated::StatTypeEnumMeta::EnumList)
+            for (const auto& pair : MetaGen::Shared::Unit::StatTypeEnumMeta::ENUM_FIELD_LIST)
             {
                 zenith->AddTableField(pair.first.data(), pair.second);
             }

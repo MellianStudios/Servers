@@ -87,7 +87,7 @@ declare class AuraEventDataOnHandleEffect
     effect : AuraEffect
 end
 
-declare class SpellEffectType
+declare class SpellEffectTypeEnum
     Invalid             : number
     Dummy               : number
     WeaponDamage        : number
@@ -97,7 +97,7 @@ declare class SpellEffectType
     AuraPeriodicHeal    : number
     Count               : number
 end
-declare SpellEffectType : SpellEffectType
+declare SpellEffectTypeEnum : SpellEffectTypeEnum
 
 declare class ProcInfo
     id : number
@@ -145,7 +145,7 @@ declare class CreatureAIEventDataOnDied
     killer : Unit?
 end
 
-declare class ItemEquipSlot
+declare class ItemEquipSlotEnum
     Invalid   : number
     Helm      : number
     Necklace  : number
@@ -173,9 +173,9 @@ declare class ItemEquipSlot
     Bag4      : number
     Count     : number
 end
-declare ItemEquipSlot : ItemEquipSlot
+declare ItemEquipSlotEnum : ItemEquipSlotEnum
 
-declare class PowerType
+declare class PowerTypeEnum
     Invalid         : number
     Health          : number
     Mana            : number
@@ -185,9 +185,9 @@ declare class PowerType
     Happiness       : number
     Count           : number
 end
-declare PowerType : PowerType
+declare PowerTypeEnum : PowerTypeEnum
 
-declare class StatType
+declare class StatTypeEnum
     Invalid         : number
     Health          : number
     Stamina         : number
@@ -200,55 +200,67 @@ declare class StatType
     SpellPower      : number
     Count           : number
 end
-declare StatType : StatType
+declare StatTypeEnum : StatTypeEnum
 
-declare class PacketList
-    Invalid                      : number
-    Connect                      : number
-    ConnectResult                : number
-    Ping                         : number
-    Pong                         : number
-    ServerUpdateStats            : number
-    SendCheatCommand             : number
-    CheatCommandResult           : number
-    UnitAdd                      : number
-    UnitRemove                   : number
-    UnitDisplayInfoUpdate        : number
-    UnitResourcesUpdate          : number
-    ClientUnitTargetUpdate       : number
-    ServerUnitTargetUpdate       : number
-    UnitCastSpell                : number
-    UnitSetMover                 : number
-    ClientUnitMove               : number
-    ServerUnitMove               : number
-    UnitMoveStop                 : number
-    ItemAdd                      : number
-    ContainerAdd                 : number
-    ContainerAddToSlot           : number
-    ContainerRemoveFromSlot      : number
-    ClientContainerSwapSlots     : number
-    ServerContainerSwapSlots     : number
-    ClientSpellCast              : number
-    ServerSpellCastResult        : number
-    SendCombatEvent              : number
-    ClientSendChatMessage        : number
-    ServerSendChatMessage        : number
-    ServerUnitEquippedItemUpdate : number
-    ServerUnitVisualItemUpdate   : number
-    ServerWorldTransfer          : number
-    ServerLoadMap                : number
-    ServerUnitTeleport           : number
-    ClientTriggerEnter           : number
-    ServerTriggerAdd             : number
-    ServerTriggerRemove          : number
-    ServerUnitAddAura            : number
-    ServerUnitUpdateAuras        : number
-    ServerUnitRemoveAura         : number
-    Count                        : number
+declare class PacketListEnum
+    Invalid : number
+    ClientConnectPacket : number
+    ServerConnectResultPacket : number
+    ServerAuthChallengePacket : number
+    ClientAuthChallengePacket : number
+    ServerAuthProofPacket : number
+    ClientAuthProofPacket : number
+    ClientPingPacket : number
+    ServerPongPacket : number
+    ServerUpdateStatsPacket : number
+    ServerCharacterListPacket : number
+    ClientCharacterSelectPacket : number
+    ClientCharacterLogoutPacket : number
+    ServerCharacterLogoutPacket : number
+    ServerWorldTransferPacket : number
+    ServerLoadMapPacket : number
+    ServerUnitAddPacket : number
+    ServerUnitRemovePacket : number
+    ServerObjectNetFieldUpdatePacket : number
+    ServerUnitNetFieldUpdatePacket : number
+    ServerUnitStatUpdatePacket : number
+    ServerUnitResistanceUpdatePacket : number
+    ServerUnitPowerUpdatePacket : number
+    ServerUnitEquippedItemUpdatePacket : number
+    ServerUnitVisualItemUpdatePacket : number
+    ServerContainerAddPacket : number
+    ServerContainerAddToSlotPacket : number
+    ServerContainerRemoveFromSlotPacket : number
+    SharedContainerSwapSlotsPacket : number
+    ServerItemAddPacket : number
+    ServerSendCombatEventPacket : number
+    ClientUnitTargetUpdatePacket : number
+    ServerUnitTargetUpdatePacket : number
+    ClientSpellCastPacket : number
+    ServerSpellCastResultPacket : number
+    ServerUnitCastSpellPacket : number
+    ServerUnitAddAuraPacket : number
+    ServerUnitUpdateAuraPacket : number
+    ServerUnitRemoveAuraPacket : number
+    ServerUnitSetMoverPacket : number
+    ServerUnitMovePacket : number
+    SharedUnitMoveStopPacket : number
+    ServerUnitTeleportPacket : number
+    ClientUnitMovePacket : number
+    ClientSendChatMessagePacket : number
+    ServerSendChatMessagePacket : number
+    ServerTriggerAddPacket : number
+    ServerTriggerRemovePacket : number
+    ClientTriggerEnterPacket : number
+    ClientPathGeneratePacket : number
+    ServerPathVisualizationPacket : number
+    ClientSendCheatCommandPacket : number
+    ServerCheatCommandResultPacket : number
+    Count : number
 end
-declare PacketList : PacketList
+declare PacketListEnum : PacketListEnum
 
-type Event = ServerEvent | CharacterEvent | TriggerEvent | SpellEvent | CreatureAIEvent | PacketList
+type Event = ServerEvent | CharacterEvent | TriggerEvent | SpellEvent | AuraEvent | CreatureAIEvent | PacketListEnum
 
 declare class Packet
     function GetOpcode(self) : number
@@ -298,8 +310,8 @@ declare class Unit
     function HasAura(self, spellID : number) : boolean
     function GetAura(self, spellID : number) : Aura?
 
-    function GetPower(self, powerType : PowerType) : number
-    function GetStat(self, statType : StatType) : number
+    function GetPower(self, PowerTypeEnum : PowerTypeEnum) : number
+    function GetStat(self, StatTypeEnum : StatTypeEnum) : number
 end
 
 declare class Character extends Unit

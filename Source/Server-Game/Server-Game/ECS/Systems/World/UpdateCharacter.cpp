@@ -36,8 +36,11 @@
 #include <Gameplay/ECS/Components/ObjectFields.h>
 #include <Gameplay/ECS/Components/UnitFields.h>
 
-#include <Meta/Generated/Server/LuaEvent.h>
-#include <Meta/Generated/Shared/NetworkPacket.h>
+#include <MetaGen/EnumTraits.h>
+#include <MetaGen/Server/Lua/Lua.h>
+#include <MetaGen/Shared/NetField/NetField.h>
+#include <MetaGen/Shared/Packet/Packet.h>
+#include <MetaGen/Shared/Unit/Unit.h>
 
 #include <Scripting/Zenith.h>
 
@@ -55,7 +58,7 @@ namespace ECS::Systems
 
             if (!hasCharacterInfo || !hasWorldTransfer)
             {
-                zenith->CallEvent(Generated::LuaCharacterEventEnum::OnLogout, Generated::LuaCharacterEventDataOnLogout{
+                zenith->CallEvent(MetaGen::Server::Lua::CharacterEvent::OnLogout, MetaGen::Server::Lua::CharacterEventDataOnLogout{
                     .characterEntity = entt::to_integral(entity)
                 });
             }
@@ -202,30 +205,30 @@ namespace ECS::Systems
             auto& playerContainers = world.Emplace<Components::PlayerContainers>(entity);
 
             auto& objectFields = world.Emplace<Components::ObjectFields>(entity);
-            objectFields.fields.SetField(Generated::ObjectNetFieldsEnum::ObjectGUIDLow, objectInfo.guid);
-            objectFields.fields.SetField(Generated::ObjectNetFieldsEnum::Scale, 1.0f);
+            objectFields.fields.SetField(MetaGen::Shared::NetField::ObjectNetFieldEnum::ObjectGUIDLow, objectInfo.guid);
+            objectFields.fields.SetField(MetaGen::Shared::NetField::ObjectNetFieldEnum::Scale, 1.0f);
 
             auto& unitFields = world.Emplace<Components::UnitFields>(entity);
 
-            constexpr u8 unitClassBytesOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::ClassByteOffset;
-            constexpr u8 unitClassBitOffset = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::ClassBitOffset;
-            constexpr u8 unitClassBitSize = (u8)Generated::UnitLevelRaceGenderClassPackedInfoEnum::ClassBitSize;
-            unitFields.fields.SetField(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, characterInfo.level);
-            unitFields.fields.SetField(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked, characterInfo.unitClass, unitClassBytesOffset, unitClassBitOffset, unitClassBitSize);
+            constexpr u8 unitClassBytesOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::ClassByteOffset;
+            constexpr u8 unitClassBitOffset = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::ClassBitOffset;
+            constexpr u8 unitClassBitSize = (u8)MetaGen::Shared::NetField::UnitLevelRaceGenderClassPackedInfoEnum::ClassBitSize;
+            unitFields.fields.SetField(MetaGen::Shared::NetField::UnitNetFieldEnum::LevelRaceGenderClassPacked, characterInfo.level);
+            unitFields.fields.SetField(MetaGen::Shared::NetField::UnitNetFieldEnum::LevelRaceGenderClassPacked, characterInfo.unitClass, unitClassBytesOffset, unitClassBitOffset, unitClassBitSize);
             Util::Unit::UpdateDisplayRaceGender(*world.registry, entity, unitFields, unitRace, unitGender);
 
             buffer->Reset();
             bool failed = false;
 
             failed |= !Util::MessageBuilder::Unit::BuildUnitAdd(buffer, objectInfo.guid, characterInfo.name, unitClass, transform.position, transform.scale, transform.pitchYaw);
-            failed |= !Util::Network::AppendPacketToBuffer(buffer, Generated::UnitSetMoverPacket{
+            failed |= !Util::Network::AppendPacketToBuffer(buffer, MetaGen::Shared::Packet::ServerUnitSetMoverPacket{
                 .guid = objectInfo.guid
             });
             failed |= !Util::MessageBuilder::Unit::BuildUnitBaseInfo(buffer, *world.registry, entity, objectInfo.guid);
             
             for (auto& pair : unitResistancesComponent.resistanceTypeToValue)
             {
-                failed |= !Util::Network::AppendPacketToBuffer(buffer, Generated::UnitResistanceUpdatePacket{
+                failed |= !Util::Network::AppendPacketToBuffer(buffer, MetaGen::Shared::Packet::ServerUnitResistanceUpdatePacket{
                     .kind = static_cast<u8>(pair.first),
                     .base = pair.second.base,
                     .current = pair.second.current,
@@ -264,7 +267,7 @@ namespace ECS::Systems
                         if (slotIndex >= PLAYER_BAG_INDEX_START)
                             return;
 
-                        failed |= !Util::Network::AppendPacketToBuffer(buffer, Generated::ItemAddPacket{
+                        failed |= !Util::Network::AppendPacketToBuffer(buffer, MetaGen::Shared::Packet::ServerItemAddPacket{
                             .guid = itemGUID,
                             .itemID = itemInstance->itemID,
                             .count = itemInstance->count,
@@ -298,7 +301,7 @@ namespace ECS::Systems
                                 ObjectGUID itemGUID = ObjectGUID::CreateItem(itemInstanceID);
                                 container.AddItemToSlot(itemGUID, slotIndex);
 
-                                failed |= !Util::Network::AppendPacketToBuffer(buffer, Generated::ItemAddPacket{
+                                failed |= !Util::Network::AppendPacketToBuffer(buffer, MetaGen::Shared::Packet::ServerItemAddPacket{
                                     .guid = itemGUID,
                                     .itemID = itemInstance->itemID,
                                     .count = itemInstance->count,
@@ -310,7 +313,7 @@ namespace ECS::Systems
                 }
 
                 bool hasDirtyVisualItems = false;
-                for (ItemEquipSlot_t i = static_cast<ItemEquipSlot_t>(Generated::ItemEquipSlotEnum::EquipmentStart); i <= static_cast<ItemEquipSlot_t>(Generated::ItemEquipSlotEnum::EquipmentEnd); i++)
+                for (ItemEquipSlot_t i = static_cast<ItemEquipSlot_t>(MetaGen::Shared::Unit::ItemEquipSlotEnum::EquipmentStart); i <= static_cast<ItemEquipSlot_t>(MetaGen::Shared::Unit::ItemEquipSlotEnum::EquipmentEnd); i++)
                 {
                     const auto& item = playerContainers.equipment.GetItem(static_cast<ItemEquipSlot_t>(i));
                     if (item.IsEmpty())
@@ -339,7 +342,7 @@ namespace ECS::Systems
                 auto view = world.View<Components::ProximityTrigger, Components::Transform, Components::AABB, Tags::ProximityTriggerIsClientSide>();
                 view.each([&](entt::entity entity, Components::ProximityTrigger& proximityTrigger, Components::Transform& transform, Components::AABB& aabb)
                 {
-                    failed |= !Util::Network::AppendPacketToBuffer(buffer, Generated::ServerTriggerAddPacket{
+                    failed |= !Util::Network::AppendPacketToBuffer(buffer, MetaGen::Shared::Packet::ServerTriggerAddPacket{
                         .triggerID = proximityTrigger.triggerID,
 
                         .name = proximityTrigger.name,
@@ -364,7 +367,7 @@ namespace ECS::Systems
 
             if (world.AllOf<Tags::CharacterWasWorldTransferred>(entity))
             {
-                zenith->CallEvent(Generated::LuaCharacterEventEnum::OnWorldChanged, Generated::LuaCharacterEventDataOnWorldChanged{
+                zenith->CallEvent(MetaGen::Server::Lua::CharacterEvent::OnWorldChanged, MetaGen::Server::Lua::CharacterEventDataOnWorldChanged{
                     .characterEntity = entt::to_integral(entity)
                 });
 
@@ -372,7 +375,7 @@ namespace ECS::Systems
             }
             else
             {
-                zenith->CallEvent(Generated::LuaCharacterEventEnum::OnLogin, Generated::LuaCharacterEventDataOnLogin{
+                zenith->CallEvent(MetaGen::Server::Lua::CharacterEvent::OnLogin, MetaGen::Server::Lua::CharacterEventDataOnLogin{
                     .characterEntity = entt::to_integral(entity)
                 });
             }
@@ -407,7 +410,7 @@ namespace ECS::Systems
             }
 
             // Apply item stats
-            for (ItemEquipSlot_t i = static_cast<ItemEquipSlot_t>(Generated::ItemEquipSlotEnum::EquipmentStart); i <= static_cast<ItemEquipSlot_t>(Generated::ItemEquipSlotEnum::EquipmentEnd); i++)
+            for (ItemEquipSlot_t i = static_cast<ItemEquipSlot_t>(MetaGen::Shared::Unit::ItemEquipSlotEnum::EquipmentStart); i <= static_cast<ItemEquipSlot_t>(MetaGen::Shared::Unit::ItemEquipSlotEnum::EquipmentEnd); i++)
             {
                 const auto& item = playerContainers.equipment.GetItem(static_cast<ItemEquipSlot_t>(i));
                 if (item.IsEmpty())
@@ -423,7 +426,7 @@ namespace ECS::Systems
                 if (!Util::Cache::GetItemTemplateByID(gameCache, itemInstance->itemID, itemTemplate))
                     continue;
 
-                UnitStat& armorStat = Util::Unit::GetStat(unitStatsComponent, Generated::StatTypeEnum::Armor);
+                UnitStat& armorStat = Util::Unit::GetStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::Armor);
                 armorStat.current += itemTemplate->armor;
 
                 GameDefine::Database::ItemStatTemplate* itemStatTemplate = nullptr;
@@ -437,7 +440,7 @@ namespace ECS::Systems
                         if (statType == 0 || statValue == 0)
                             continue;
 
-                        auto statTypeEnum = static_cast<Generated::StatTypeEnum>(statType);
+                        auto statTypeEnum = static_cast<MetaGen::Shared::Unit::StatTypeEnum>(statType);
                         UnitStat& unitStat = Util::Unit::GetStat(unitStatsComponent, statTypeEnum);
                         unitStat.current += statValue;
                     }
@@ -456,11 +459,11 @@ namespace ECS::Systems
                 }
             }
 
-            for (Generated::StatTypeEnum dirtyStatType : unitStatsComponent.dirtyStatTypes)
+            for (MetaGen::Shared::Unit::StatTypeEnum dirtyStatType : unitStatsComponent.dirtyStatTypes)
             {
                 UnitStat& unitStat = Util::Unit::GetStat(unitStatsComponent, dirtyStatType);
 
-                Util::Network::AppendPacketToBuffer(buffer, Generated::UnitStatUpdatePacket{
+                Util::Network::AppendPacketToBuffer(buffer, MetaGen::Shared::Packet::ServerUnitStatUpdatePacket{
                     .kind = static_cast<u8>(dirtyStatType),
                     .base = unitStat.base,
                     .current = unitStat.current
@@ -469,10 +472,10 @@ namespace ECS::Systems
 
             // Calculate New Health
             {
-                UnitStat& healthStat = Util::Unit::GetStat(unitStatsComponent, Generated::StatTypeEnum::Health);
-                UnitStat& staminaStat = Util::Unit::GetStat(unitStatsComponent, Generated::StatTypeEnum::Stamina);
+                UnitStat& healthStat = Util::Unit::GetStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::Health);
+                UnitStat& staminaStat = Util::Unit::GetStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::Stamina);
 
-                UnitPower& healthPower = Util::Unit::GetPower(unitPowersComponent, Generated::PowerTypeEnum::Health);
+                UnitPower& healthPower = Util::Unit::GetPower(unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Health);
 
                 f64 baseHealth = healthStat.current;
                 f64 maxHealth = healthPower.base + (staminaStat.current * 10.0);
@@ -481,7 +484,7 @@ namespace ECS::Systems
                 if (world.AllOf<Events::CharacterNeedsInitialization>(entity))
                     currentHealth = maxHealth;
 
-                Util::Unit::SetPower(world, entity, unitPowersComponent, Generated::PowerTypeEnum::Health, baseHealth, currentHealth, maxHealth);
+                Util::Unit::SetPower(world, entity, unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Health, baseHealth, currentHealth, maxHealth);
             }
 
             switch (characterInfo.unitClass)
@@ -489,8 +492,8 @@ namespace ECS::Systems
                 case GameDefine::UnitClass::Warrior:
                 case GameDefine::UnitClass::Paladin:
                 {
-                    UnitStat& strengthStat = Util::Unit::GetStat(unitStatsComponent, Generated::StatTypeEnum::Strength);
-                    UnitStat& attackPowerStat = Util::Unit::GetStat(unitStatsComponent, Generated::StatTypeEnum::AttackPower);
+                    UnitStat& strengthStat = Util::Unit::GetStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::Strength);
+                    UnitStat& attackPowerStat = Util::Unit::GetStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::AttackPower);
 
                     attackPowerStat.current += strengthStat.current * 2.0;
                     break;
@@ -499,8 +502,8 @@ namespace ECS::Systems
                 case GameDefine::UnitClass::Hunter:
                 case GameDefine::UnitClass::Rogue:
                 {
-                    UnitStat& agilityStat = Util::Unit::GetStat(unitStatsComponent, Generated::StatTypeEnum::Agility);
-                    UnitStat& attackPowerStat = Util::Unit::GetStat(unitStatsComponent, Generated::StatTypeEnum::AttackPower);
+                    UnitStat& agilityStat = Util::Unit::GetStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::Agility);
+                    UnitStat& attackPowerStat = Util::Unit::GetStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::AttackPower);
 
                     attackPowerStat.current += agilityStat.current * 2.0;
                     break;
@@ -512,8 +515,8 @@ namespace ECS::Systems
                 case GameDefine::UnitClass::Warlock:
                 case GameDefine::UnitClass::Druid:
                 {
-                    UnitStat& intellectStat = Util::Unit::GetStat(unitStatsComponent, Generated::StatTypeEnum::Intellect);
-                    UnitStat& spellPowerStat = Util::Unit::GetStat(unitStatsComponent, Generated::StatTypeEnum::SpellPower);
+                    UnitStat& intellectStat = Util::Unit::GetStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::Intellect);
+                    UnitStat& spellPowerStat = Util::Unit::GetStat(unitStatsComponent, MetaGen::Shared::Unit::StatTypeEnum::SpellPower);
 
                     spellPowerStat.current += intellectStat.current * 2.0;
                     break;

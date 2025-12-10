@@ -19,7 +19,7 @@ local function OnPrepare(eventID : SpellEvent, data : SpellEventDataOnPrepare)
 
     local character = data.caster:ToCharacter()
     if character then
-        local weaponEquipmentSlot = if weaponSlot == 1 then ItemEquipSlot.MainHand else ItemEquipSlot.OffHand
+        local weaponEquipmentSlot = if weaponSlot == 1 then ItemEquipSlotEnum.MainHand else ItemEquipSlotEnum.OffHand
         local weapon = character:GetEquippedItem(weaponEquipmentSlot)
         local itemTemplate = weapon and weapon:GetTemplate()
         local itemWeaponTemplate = itemTemplate and itemTemplate:GetWeaponTemplate()

@@ -19,6 +19,8 @@
 #include "Server-Game/ECS/Util/Cache/CacheUtil.h"
 #include "Server-Game/Util/ServiceLocator.h"
 
+#include <MetaGen/Shared/Unit/Unit.h>
+
 #include <Scripting/Zenith.h>
 
 #include <entt/entt.hpp>
@@ -95,7 +97,7 @@ namespace Scripting
                 if (world.ValidEntity(unit->entity))
                 {
                     auto& unitPowersComponent = world.Get<ECS::Components::UnitPowersComponent>(unit->entity);
-                    auto& healthPower = ECS::Util::Unit::GetPower(unitPowersComponent, Generated::PowerTypeEnum::Health);
+                    auto& healthPower = ECS::Util::Unit::GetPower(unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Health);
                     isAlive = healthPower.current > 0.0f;
                 }
 
@@ -116,7 +118,7 @@ namespace Scripting
                 if (world.ValidEntity(unit->entity))
                 {
                     auto& unitPowersComponent = world.Get<ECS::Components::UnitPowersComponent>(unit->entity);
-                    auto& healthPower = ECS::Util::Unit::GetPower(unitPowersComponent, Generated::PowerTypeEnum::Health);
+                    auto& healthPower = ECS::Util::Unit::GetPower(unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Health);
 
                     currentHealth = healthPower.current;
                     maxHealth = healthPower.max;
@@ -149,7 +151,7 @@ namespace Scripting
 
                 auto& combatEventState = world.GetSingleton<ECS::Singletons::CombatEventState>();
                 auto& unitPowersComponent = world.Get<ECS::Components::UnitPowersComponent>(unit->entity);
-                auto& healthPower = ECS::Util::Unit::GetPower(unitPowersComponent, Generated::PowerTypeEnum::Health);
+                auto& healthPower = ECS::Util::Unit::GetPower(unitPowersComponent, MetaGen::Shared::Unit::PowerTypeEnum::Health);
 
                 u32 amount = static_cast<u32>(healthPower.max);
                 ECS::Util::CombatEvent::AddDamageEvent(combatEventState, objectInfo.guid, objectInfo.guid, amount);
@@ -483,8 +485,8 @@ namespace Scripting
             }
             i32 GetPower(Zenith* zenith, Unit* unit)
             {
-                auto resourceType = static_cast<Generated::PowerTypeEnum>(zenith->CheckVal<u8>(2));
-                if (resourceType <= Generated::PowerTypeEnum::Invalid || resourceType >= Generated::PowerTypeEnum::Count)
+                auto resourceType = static_cast<MetaGen::Shared::Unit::PowerTypeEnum>(zenith->CheckVal<u8>(2));
+                if (resourceType <= MetaGen::Shared::Unit::PowerTypeEnum::Invalid || resourceType >= MetaGen::Shared::Unit::PowerTypeEnum::Count)
                     return 0;
 
                 entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
@@ -510,8 +512,8 @@ namespace Scripting
             }
             i32 GetStat(Zenith* zenith, Unit* unit)
             {
-                auto statType = static_cast<Generated::StatTypeEnum>(zenith->CheckVal<u8>(2));
-                if (statType <= Generated::StatTypeEnum::Invalid || statType >= Generated::StatTypeEnum::Count)
+                auto statType = static_cast<MetaGen::Shared::Unit::StatTypeEnum>(zenith->CheckVal<u8>(2));
+                if (statType <= MetaGen::Shared::Unit::StatTypeEnum::Invalid || statType >= MetaGen::Shared::Unit::StatTypeEnum::Count)
                     return 0;
 
                 entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;

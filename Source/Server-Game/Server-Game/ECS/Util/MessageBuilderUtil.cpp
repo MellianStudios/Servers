@@ -12,8 +12,9 @@
 #include <Gameplay/ECS/Components/ObjectFields.h>
 #include <Gameplay/ECS/Components/UnitFields.h>
 
-#include <Meta/Generated/Shared/CombatLogEnum.h>
-#include <Meta/Generated/Shared/NetworkPacket.h>
+#include <MetaGen/EnumTraits.h>
+#include <MetaGen/Shared/CombatLog/CombatLog.h>
+#include <MetaGen/Shared/Packet/Packet.h>
 
 #include <entt/entt.hpp>
 
@@ -70,7 +71,7 @@ namespace ECS::Util::MessageBuilder
     {
         bool BuildUnitAdd(std::shared_ptr<Bytebuffer>& buffer, ObjectGUID guid, const std::string& name, GameDefine::UnitClass unitClass, const vec3& position, const vec3& scale, const vec2& pitchYaw)
         {
-            bool result = Util::Network::AppendPacketToBuffer(buffer, Generated::UnitAddPacket{
+            bool result = Util::Network::AppendPacketToBuffer(buffer, MetaGen::Shared::Packet::ServerUnitAddPacket{
                 .guid = guid,
                 .name = name,
                 .unitClass = static_cast<u8>(unitClass),
@@ -92,13 +93,13 @@ namespace ECS::Util::MessageBuilder
 
             bool failed = false;
 
-            u32 numEquippedItems = static_cast<u32>(Generated::ItemEquipSlotEnum::EquipmentEnd) + 1;
+            u32 numEquippedItems = static_cast<u32>(MetaGen::Shared::Unit::ItemEquipSlotEnum::EquipmentEnd) + 1;
             for (u32 i = 0; i < numEquippedItems; i++)
             {
                 if (visualItems.equippedItemIDs[i] == 0)
                     continue;
 
-                failed |= !Util::Network::AppendPacketToBuffer(buffer, Generated::ServerUnitVisualItemUpdatePacket{
+                failed |= !Util::Network::AppendPacketToBuffer(buffer, MetaGen::Shared::Packet::ServerUnitVisualItemUpdatePacket{
                     .guid = guid,
                     .slot = static_cast<ItemEquipSlot_t>(i),
                     .itemID = visualItems.equippedItemIDs[i]
@@ -107,7 +108,7 @@ namespace ECS::Util::MessageBuilder
 
             for (auto& pair : unitPowersComponent.powerTypeToValue)
             {
-                failed |= !Util::Network::AppendPacketToBuffer(buffer, Generated::UnitPowerUpdatePacket{
+                failed |= !Util::Network::AppendPacketToBuffer(buffer, MetaGen::Shared::Packet::ServerUnitPowerUpdatePacket{
                     .guid = guid,
                     .kind = static_cast<u8>(pair.first),
                     .base = pair.second.base,
@@ -122,7 +123,7 @@ namespace ECS::Util::MessageBuilder
 
                 auto& auraInfo = registry.get<Components::AuraInfo>(entity);
 
-                failed |= !Util::Network::AppendPacketToBuffer(buffer, Generated::ServerUnitAddAuraPacket{
+                failed |= !Util::Network::AppendPacketToBuffer(buffer, MetaGen::Shared::Packet::ServerUnitAddAuraPacket{
                     .guid = guid,
                     .auraInstanceID = entt::to_integral(entity),
                     .spellID = pair.first,
@@ -131,15 +132,15 @@ namespace ECS::Util::MessageBuilder
                 });
             }
 
-            auto objectGUID = objectFields.fields.GetField<ObjectGUID>(Generated::ObjectNetFieldsEnum::ObjectGUIDLow);
+            auto objectGUID = objectFields.fields.GetField<ObjectGUID>(MetaGen::Shared::NetField::ObjectNetFieldEnum::ObjectGUIDLow);
 
-            failed |= !Util::MessageBuilder::CreatePacket(buffer, (::Network::OpcodeType)Generated::PacketListEnum::ServerObjectNetFieldUpdate, [&buffer, &objectFields, objectGUID]()
+            failed |= !Util::MessageBuilder::CreatePacket(buffer, (::Network::OpcodeType)MetaGen::PacketListEnum::ServerObjectNetFieldUpdatePacket, [&buffer, &objectFields, objectGUID]()
             {
                 buffer->Serialize(objectGUID);
                 objectFields.fields.SerializeSetFields(buffer.get());
             });
 
-            failed |= !Util::MessageBuilder::CreatePacket(buffer, (::Network::OpcodeType)Generated::PacketListEnum::ServerUnitNetFieldUpdate, [&buffer, &unitFields, objectGUID]()
+            failed |= !Util::MessageBuilder::CreatePacket(buffer, (::Network::OpcodeType)MetaGen::PacketListEnum::ServerUnitNetFieldUpdatePacket, [&buffer, &unitFields, objectGUID]()
             {
                 buffer->Serialize(objectGUID);
                 unitFields.fields.SerializeSetFields(buffer.get());
@@ -153,9 +154,9 @@ namespace ECS::Util::MessageBuilder
     {
         bool BuildDamageDealtMessage(std::shared_ptr<Bytebuffer>& buffer, ObjectGUID sourceGUID, ObjectGUID targetGUID, f64 damage, f64 overKillDamage)
         {
-            bool result = CreatePacket(buffer, Generated::SendCombatEventPacket::PACKET_ID, [&, sourceGUID, targetGUID, damage, overKillDamage]()
+            bool result = CreatePacket(buffer, MetaGen::Shared::Packet::ServerSendCombatEventPacket::PACKET_ID, [&, sourceGUID, targetGUID, damage, overKillDamage]()
             {
-                buffer->Put(Generated::CombatLogEventsEnum::DamageDealt);
+                buffer->Put(MetaGen::Shared::CombatLog::CombatLogEventEnum::DamageDealt);
                 buffer->Serialize(sourceGUID);
                 buffer->Serialize(targetGUID);
                 buffer->PutF64(damage);
@@ -166,9 +167,9 @@ namespace ECS::Util::MessageBuilder
         }
         bool BuildHealingDoneMessage(std::shared_ptr<Bytebuffer>& buffer, ObjectGUID sourceGUID, ObjectGUID targetGUID, f64 healing, f64 overHealing)
         {
-            bool result = CreatePacket(buffer, Generated::SendCombatEventPacket::PACKET_ID, [&, sourceGUID, targetGUID, healing, overHealing]()
+            bool result = CreatePacket(buffer, MetaGen::Shared::Packet::ServerSendCombatEventPacket::PACKET_ID, [&, sourceGUID, targetGUID, healing, overHealing]()
             {
-                buffer->Put(Generated::CombatLogEventsEnum::HealingDone);
+                buffer->Put(MetaGen::Shared::CombatLog::CombatLogEventEnum::HealingDone);
                 buffer->Serialize(sourceGUID);
                 buffer->Serialize(targetGUID);
                 buffer->PutF64(healing);
@@ -179,9 +180,9 @@ namespace ECS::Util::MessageBuilder
         }
         bool BuildResurrectedMessage(std::shared_ptr<Bytebuffer>& buffer, ObjectGUID sourceGUID, ObjectGUID targetGUID, f64 restoredHealth)
         {
-            bool result = CreatePacket(buffer, Generated::SendCombatEventPacket::PACKET_ID, [&buffer, sourceGUID, targetGUID, restoredHealth]()
+            bool result = CreatePacket(buffer, MetaGen::Shared::Packet::ServerSendCombatEventPacket::PACKET_ID, [&buffer, sourceGUID, targetGUID, restoredHealth]()
             {
-                buffer->Put(Generated::CombatLogEventsEnum::Resurrected);
+                buffer->Put(MetaGen::Shared::CombatLog::CombatLogEventEnum::Resurrected);
                 buffer->Serialize(sourceGUID);
                 buffer->Serialize(targetGUID);
                 buffer->PutF64(restoredHealth);
@@ -193,9 +194,9 @@ namespace ECS::Util::MessageBuilder
 
     namespace Cheat
     {
-        bool BuildCheatCommandResultMessage(std::shared_ptr<Bytebuffer>& buffer, Generated::CheatCommandEnum command, u8 result, const std::string& response)
+        bool BuildCheatCommandResultMessage(std::shared_ptr<Bytebuffer>& buffer, MetaGen::Shared::Cheat::CheatCommandEnum command, u8 result, const std::string& response)
         {
-            bool createdPacket = CreatePacket(buffer, Generated::CheatCommandResultPacket::PACKET_ID, [&buffer, &response, command, result]()
+            bool createdPacket = CreatePacket(buffer, MetaGen::Shared::Packet::ServerCheatCommandResultPacket::PACKET_ID, [&buffer, &response, command, result]()
             {
                 buffer->Put(command);
                 buffer->PutU8(result);
@@ -243,7 +244,7 @@ namespace ECS::Util::MessageBuilder
                 default: break;
             }
 
-            return BuildCheatCommandResultMessage(buffer, Generated::CheatCommandEnum::CharacterAdd, result, *resultString);
+            return BuildCheatCommandResultMessage(buffer, MetaGen::Shared::Cheat::CheatCommandEnum::CharacterAdd, result, *resultString);
         }
         bool BuildCheatCharacterRemoveResponse(std::shared_ptr<Bytebuffer>& buffer, u8 result)
         {
@@ -283,7 +284,7 @@ namespace ECS::Util::MessageBuilder
                 default: break;
             }
 
-            return BuildCheatCommandResultMessage(buffer, Generated::CheatCommandEnum::CharacterRemove, result, *resultString);
+            return BuildCheatCommandResultMessage(buffer, MetaGen::Shared::Cheat::CheatCommandEnum::CharacterRemove, result, *resultString);
         }
     }
 }

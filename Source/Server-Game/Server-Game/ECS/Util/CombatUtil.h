@@ -3,8 +3,6 @@
 
 #include <Gameplay/GameDefine.h>
 
-#include <Meta/Generated/Shared/UnitEnum.h>
-
 #include <entt/fwd.hpp>
 
 namespace ECS

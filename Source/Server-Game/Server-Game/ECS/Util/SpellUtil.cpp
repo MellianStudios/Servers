@@ -10,8 +10,9 @@
 #include "Server-Game/ECS/Singletons/TimeState.h"
 #include "Server-Game/ECS/Singletons/WorldState.h"
 
-
-#include <Meta/Generated/Server/LuaEvent.h>
+#include <MetaGen/EnumTraits.h>
+#include <MetaGen/Server/Lua/Lua.h>
+#include <MetaGen/Shared/Spell/Spell.h>
 
 #include <Scripting/Zenith.h>
 
@@ -94,7 +95,7 @@ namespace ECS::Util::Spell
         return true;
     }
 
-    bool CanSpellProc(const Singletons::TimeState& timeState, Components::ProcInfo& procInfo, Generated::SpellProcPhaseTypeEnum phaseType, Generated::SpellProcTypeMaskEnum typeMask, u64 lastProcTime)
+    bool CanSpellProc(const Singletons::TimeState& timeState, Components::ProcInfo& procInfo, MetaGen::Shared::Spell::SpellProcPhaseTypeEnum phaseType, MetaGen::Shared::Spell::SpellProcTypeMaskEnum typeMask, u64 lastProcTime)
     {
         u32 phaseMask = (1u << static_cast<u32>(phaseType));
 
@@ -106,7 +107,7 @@ namespace ECS::Util::Spell
         bool canProcMask = phaseMaskPass && typeMaskPass && cooldownPass && chargesPass;
         return canProcMask;
     }
-    void CheckSpellProc(World& world, Scripting::Zenith* zenith, const Singletons::TimeState& timeState, Singletons::GameCache& gameCache, Components::SpellEffectInfo& spellEffectInfo, Components::SpellProcInfo& spellProcInfo, Generated::SpellProcPhaseTypeEnum phaseType, u32 spellID, entt::entity spellEntity, entt::entity casterEntity)
+    void CheckSpellProc(World& world, Scripting::Zenith* zenith, const Singletons::TimeState& timeState, Singletons::GameCache& gameCache, Components::SpellEffectInfo& spellEffectInfo, Components::SpellProcInfo& spellProcInfo, MetaGen::Shared::Spell::SpellProcPhaseTypeEnum phaseType, u32 spellID, entt::entity spellEntity, entt::entity casterEntity)
     {
         auto* unitAuraInfo = world.TryGet<ECS::Components::UnitAuraInfo>(casterEntity);
 
@@ -117,10 +118,10 @@ namespace ECS::Util::Spell
             phaseProcMask &= ~(1u << procIndex);
 
             ECS::Components::ProcInfo& procInfo = spellProcInfo.procInfos[procIndex];
-            bool useUnitICD = unitAuraInfo && (procInfo.flags & (u64)Generated::SpellProcFlagEnum::UseUnitICD) != 0;
+            bool useUnitICD = unitAuraInfo && (procInfo.flags & (u64)MetaGen::Shared::Spell::SpellProcFlagEnum::UseUnitICD) != 0;
             u64 lastProcTime = useUnitICD ? unitAuraInfo->procIDToLastProcTime[procInfo.procDataID] : procInfo.lastProcTime;
 
-            if (!CanSpellProc(timeState, procInfo, phaseType, Generated::SpellProcTypeMaskEnum::All, lastProcTime))
+            if (!CanSpellProc(timeState, procInfo, phaseType, MetaGen::Shared::Spell::SpellProcTypeMaskEnum::All, lastProcTime))
                 continue;
 
             // Perform Proc Chance Roll
@@ -147,7 +148,7 @@ namespace ECS::Util::Spell
                     effectIndex = std::countr_zero(effectMask);
                     u8 effectType = spellEffectInfo.effects[effectIndex].effectType;
 
-                    zenith->CallEvent(Generated::LuaSpellEventEnum::OnHandleEffect, Generated::LuaSpellEventDataOnHandleEffect{
+                    zenith->CallEvent(MetaGen::Server::Lua::SpellEvent::OnHandleEffect, MetaGen::Server::Lua::SpellEventDataOnHandleEffect{
                         .casterID = entt::to_integral(casterEntity),
                         .spellEntity = entt::to_integral(spellEntity),
                         .spellID = spellID,
@@ -171,7 +172,7 @@ namespace ECS::Util::Spell
     }
     void CheckSpellEffectProc(World& world, Scripting::Zenith* zenith, const Singletons::TimeState& timeState, Singletons::GameCache& gameCache, Components::SpellEffectInfo& spellEffectInfo, Components::SpellProcInfo& spellProcInfo, u32 spellID, entt::entity spellEntity, entt::entity casterEntity, u32 effectIndex)
     {
-        auto phaseType = Generated::SpellProcPhaseTypeEnum::OnSpellHandleEffect;
+        auto phaseType = MetaGen::Shared::Spell::SpellProcPhaseTypeEnum::OnSpellHandleEffect;
 
         u64 effectIndexMask = (1ull << effectIndex);
         bool isProcEffect = (spellProcInfo.procEffectsMask & effectIndexMask) != 0;
@@ -186,10 +187,10 @@ namespace ECS::Util::Spell
             phaseProcMask &= ~(1u << procIndex);
 
             ECS::Components::ProcInfo& procInfo = spellProcInfo.procInfos[procIndex];
-            bool useUnitICD = unitAuraInfo && (procInfo.flags & (u64)Generated::SpellProcFlagEnum::UseUnitICD) != 0;
+            bool useUnitICD = unitAuraInfo && (procInfo.flags & (u64)MetaGen::Shared::Spell::SpellProcFlagEnum::UseUnitICD) != 0;
             u64 lastProcTime = useUnitICD ? unitAuraInfo->procIDToLastProcTime[procInfo.procDataID] : procInfo.lastProcTime;
 
-            if (!CanSpellProc(timeState, procInfo, phaseType, Generated::SpellProcTypeMaskEnum::All, lastProcTime))
+            if (!CanSpellProc(timeState, procInfo, phaseType, MetaGen::Shared::Spell::SpellProcTypeMaskEnum::All, lastProcTime))
                 continue;
 
             // Perform Proc Chance Roll
@@ -209,7 +210,7 @@ namespace ECS::Util::Spell
             {
                 u8 effectType = spellEffectInfo.effects[effectIndex].effectType;
 
-                zenith->CallEvent(Generated::LuaSpellEventEnum::OnHandleEffect, Generated::LuaSpellEventDataOnHandleEffect{
+                zenith->CallEvent(MetaGen::Server::Lua::SpellEvent::OnHandleEffect, MetaGen::Server::Lua::SpellEventDataOnHandleEffect{
                     .casterID = entt::to_integral(casterEntity),
                     .spellEntity = entt::to_integral(spellEntity),
                     .spellID = spellID,
@@ -244,7 +245,7 @@ namespace ECS::Util::Spell
         }
     }
     
-    void CheckAuraProc(World& world, Scripting::Zenith* zenith, const Singletons::TimeState& timeState, Singletons::GameCache& gameCache, Components::AuraEffectInfo& auraEffectInfo, Components::SpellProcInfo& spellProcInfo, Generated::SpellProcPhaseTypeEnum phaseType, u32 spellID, entt::entity auraEntity, entt::entity casterEntity, entt::entity targetEntity)
+    void CheckAuraProc(World& world, Scripting::Zenith* zenith, const Singletons::TimeState& timeState, Singletons::GameCache& gameCache, Components::AuraEffectInfo& auraEffectInfo, Components::SpellProcInfo& spellProcInfo, MetaGen::Shared::Spell::SpellProcPhaseTypeEnum phaseType, u32 spellID, entt::entity auraEntity, entt::entity casterEntity, entt::entity targetEntity)
     {
         auto* unitAuraInfo = world.TryGet<ECS::Components::UnitAuraInfo>(casterEntity);
 
@@ -255,10 +256,10 @@ namespace ECS::Util::Spell
             phaseProcMask &= ~(1u << procIndex);
 
             ECS::Components::ProcInfo& procInfo = spellProcInfo.procInfos[procIndex];
-            bool useUnitICD = unitAuraInfo && (procInfo.flags & (u64)Generated::SpellProcFlagEnum::UseUnitICD) != 0;
+            bool useUnitICD = unitAuraInfo && (procInfo.flags & (u64)MetaGen::Shared::Spell::SpellProcFlagEnum::UseUnitICD) != 0;
             u64 lastProcTime = useUnitICD ? unitAuraInfo->procIDToLastProcTime[procInfo.procDataID] : procInfo.lastProcTime;
 
-            if (!CanSpellProc(timeState, procInfo, phaseType, Generated::SpellProcTypeMaskEnum::All, lastProcTime))
+            if (!CanSpellProc(timeState, procInfo, phaseType, MetaGen::Shared::Spell::SpellProcTypeMaskEnum::All, lastProcTime))
                 continue;
 
             // Perform Proc Chance Roll
@@ -285,7 +286,7 @@ namespace ECS::Util::Spell
                     effectIndex = std::countr_zero(effectMask);
                     u8 effectType = auraEffectInfo.effects[effectIndex].type;
 
-                    zenith->CallEvent(Generated::LuaAuraEventEnum::OnHandleEffect, Generated::LuaAuraEventDataOnHandleEffect{
+                    zenith->CallEvent(MetaGen::Server::Lua::AuraEvent::OnHandleEffect, MetaGen::Server::Lua::AuraEventDataOnHandleEffect{
                         .casterID = entt::to_integral(casterEntity),
                         .targetID = entt::to_integral(targetEntity),
                         .auraEntity = entt::to_integral(auraEntity),
@@ -310,7 +311,7 @@ namespace ECS::Util::Spell
     }
     void CheckAuraEffectProc(World& world, Scripting::Zenith* zenith, const Singletons::TimeState& timeState, Singletons::GameCache& gameCache, Components::AuraEffectInfo& auraEffectInfo, Components::SpellProcInfo& spellProcInfo, u32 spellID, entt::entity auraEntity, entt::entity casterEntity, entt::entity targetEntity, u32 effectIndex)
     {
-        auto phaseType = Generated::SpellProcPhaseTypeEnum::OnAuraHandleEffect;
+        auto phaseType = MetaGen::Shared::Spell::SpellProcPhaseTypeEnum::OnAuraHandleEffect;
 
         u64 effectIndexMask = (1ull << effectIndex);
         bool isProcEffect = (spellProcInfo.procEffectsMask & effectIndexMask) != 0;
@@ -325,10 +326,10 @@ namespace ECS::Util::Spell
             phaseProcMask &= ~(1u << procIndex);
 
             ECS::Components::ProcInfo& procInfo = spellProcInfo.procInfos[procIndex];
-            bool useUnitICD = unitAuraInfo && (procInfo.flags & (u64)Generated::SpellProcFlagEnum::UseUnitICD) != 0;
+            bool useUnitICD = unitAuraInfo && (procInfo.flags & (u64)MetaGen::Shared::Spell::SpellProcFlagEnum::UseUnitICD) != 0;
             u64 lastProcTime = useUnitICD ? unitAuraInfo->procIDToLastProcTime[procInfo.procDataID] : procInfo.lastProcTime;
 
-            if (!CanSpellProc(timeState, procInfo, phaseType, Generated::SpellProcTypeMaskEnum::All, lastProcTime))
+            if (!CanSpellProc(timeState, procInfo, phaseType, MetaGen::Shared::Spell::SpellProcTypeMaskEnum::All, lastProcTime))
                 continue;
 
             // Perform Proc Chance Roll
@@ -348,7 +349,7 @@ namespace ECS::Util::Spell
             {
                 u8 effectType = auraEffectInfo.effects[effectIndex].type;
 
-                zenith->CallEvent(Generated::LuaAuraEventEnum::OnHandleEffect, Generated::LuaAuraEventDataOnHandleEffect{
+                zenith->CallEvent(MetaGen::Server::Lua::AuraEvent::OnHandleEffect, MetaGen::Server::Lua::AuraEventDataOnHandleEffect{
                     .casterID = entt::to_integral(casterEntity),
                     .targetID = entt::to_integral(targetEntity),
                     .auraEntity = entt::to_integral(auraEntity),

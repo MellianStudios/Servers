@@ -5,8 +5,9 @@
 #include "Events/SpellEvents.h"
 #include "Events/UnitEvents.h"
 
-#include <Meta/Generated/Server/LuaEvent.h>
-#include <Meta/Generated/Shared/PacketList.h>
+#include <MetaGen/EnumTraits.h>
+#include <MetaGen/PacketList.h>
+#include <MetaGen/Server/Lua/Lua.h>
 
 #include <Scripting/LuaManager.h>
 #include <Scripting/Zenith.h>
@@ -63,43 +64,43 @@ namespace Scripting
 
     void EventHandler::CreateEventTables(Zenith* zenith)
     {
-        zenith->RegisterEventType<Generated::LuaServerEventEnum>();
-        zenith->RegisterEventTypeID<Generated::LuaServerEventDataLoaded>(Generated::LuaServerEventEnum::Loaded);
-        zenith->RegisterEventTypeID<Generated::LuaServerEventDataUpdated>(Generated::LuaServerEventEnum::Updated);
+        zenith->RegisterEventType<MetaGen::Server::Lua::ServerEvent>();
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::ServerEventDataLoaded>(MetaGen::Server::Lua::ServerEvent::Loaded);
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::ServerEventDataUpdated>(MetaGen::Server::Lua::ServerEvent::Updated);
 
-        zenith->RegisterEventType<Generated::LuaCharacterEventEnum>();
-        zenith->RegisterEventTypeID<Generated::LuaCharacterEventDataOnLogin>(Generated::LuaCharacterEventEnum::OnLogin, &Event::Character::OnCharacterLogin);
-        zenith->RegisterEventTypeID<Generated::LuaCharacterEventDataOnLogout>(Generated::LuaCharacterEventEnum::OnLogout, &Event::Character::OnCharacterLogout);
-        zenith->RegisterEventTypeID<Generated::LuaCharacterEventDataOnWorldChanged>(Generated::LuaCharacterEventEnum::OnWorldChanged, &Event::Character::OnCharacterWorldChanged);
+        zenith->RegisterEventType<MetaGen::Server::Lua::CharacterEvent>();
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::CharacterEventDataOnLogin>(MetaGen::Server::Lua::CharacterEvent::OnLogin, &Event::Character::OnCharacterLogin);
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::CharacterEventDataOnLogout>(MetaGen::Server::Lua::CharacterEvent::OnLogout, &Event::Character::OnCharacterLogout);
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::CharacterEventDataOnWorldChanged>(MetaGen::Server::Lua::CharacterEvent::OnWorldChanged, &Event::Character::OnCharacterWorldChanged);
 
-        zenith->RegisterEventType<Generated::LuaTriggerEventEnum>();
-        zenith->RegisterEventTypeID<Generated::LuaTriggerEventDataOnEnter>(Generated::LuaTriggerEventEnum::OnEnter);
-        zenith->RegisterEventTypeID<Generated::LuaTriggerEventDataOnExit>(Generated::LuaTriggerEventEnum::OnExit);
-        zenith->RegisterEventTypeID<Generated::LuaTriggerEventDataOnStay>(Generated::LuaTriggerEventEnum::OnStay);
+        zenith->RegisterEventType<MetaGen::Server::Lua::TriggerEvent>();
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::TriggerEventDataOnEnter>(MetaGen::Server::Lua::TriggerEvent::OnEnter);
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::TriggerEventDataOnExit>(MetaGen::Server::Lua::TriggerEvent::OnExit);
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::TriggerEventDataOnStay>(MetaGen::Server::Lua::TriggerEvent::OnStay);
 
-        zenith->RegisterEventType<Generated::LuaSpellEventEnum>();
-        zenith->RegisterEventTypeID<Generated::LuaSpellEventDataOnPrepare>(Generated::LuaSpellEventEnum::OnPrepare, &Event::Spell::OnSpellPrepare);
-        zenith->RegisterEventTypeID<Generated::LuaSpellEventDataOnHandleEffect>(Generated::LuaSpellEventEnum::OnHandleEffect, &Event::Spell::OnSpellHandleEffect);
-        zenith->RegisterEventTypeID<Generated::LuaSpellEventDataOnFinish>(Generated::LuaSpellEventEnum::OnFinish, &Event::Spell::OnSpellFinish);
+        zenith->RegisterEventType<MetaGen::Server::Lua::SpellEvent>();
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::SpellEventDataOnPrepare>(MetaGen::Server::Lua::SpellEvent::OnPrepare, &Event::Spell::OnSpellPrepare);
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::SpellEventDataOnHandleEffect>(MetaGen::Server::Lua::SpellEvent::OnHandleEffect, &Event::Spell::OnSpellHandleEffect);
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::SpellEventDataOnFinish>(MetaGen::Server::Lua::SpellEvent::OnFinish, &Event::Spell::OnSpellFinish);
 
-        zenith->RegisterEventType<Generated::LuaAuraEventEnum>();
-        zenith->RegisterEventTypeID<Generated::LuaAuraEventDataOnApply>(Generated::LuaAuraEventEnum::OnApply, &Event::Aura::OnAuraApply);
-        zenith->RegisterEventTypeID<Generated::LuaAuraEventDataOnRemove>(Generated::LuaAuraEventEnum::OnRemove, &Event::Aura::OnAuraRemove);
-        zenith->RegisterEventTypeID<Generated::LuaAuraEventDataOnHandleEffect>(Generated::LuaAuraEventEnum::OnHandleEffect, &Event::Aura::OnAuraHandleEffect);
+        zenith->RegisterEventType<MetaGen::Server::Lua::AuraEvent>();
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::AuraEventDataOnApply>(MetaGen::Server::Lua::AuraEvent::OnApply, &Event::Aura::OnAuraApply);
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::AuraEventDataOnRemove>(MetaGen::Server::Lua::AuraEvent::OnRemove, &Event::Aura::OnAuraRemove);
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::AuraEventDataOnHandleEffect>(MetaGen::Server::Lua::AuraEvent::OnHandleEffect, &Event::Aura::OnAuraHandleEffect);
 
-        zenith->RegisterEventType<Generated::LuaCreatureAIEventEnum>();
-        zenith->RegisterEventTypeID<Generated::LuaCreatureAIEventDataOnInit>(Generated::LuaCreatureAIEventEnum::OnInit, &Event::CreatureAIEvents::OnCreatureAIInit);
-        zenith->RegisterEventTypeID<Generated::LuaCreatureAIEventDataOnDeinit>(Generated::LuaCreatureAIEventEnum::OnDeinit, &Event::CreatureAIEvents::OnCreatureAIDeinit);
-        zenith->RegisterEventTypeID<Generated::LuaCreatureAIEventDataOnEnterCombat>(Generated::LuaCreatureAIEventEnum::OnEnterCombat, &Event::CreatureAIEvents::OnCreatureAIOnEnterCombat);
-        zenith->RegisterEventTypeID<Generated::LuaCreatureAIEventDataOnLeaveCombat>(Generated::LuaCreatureAIEventEnum::OnLeaveCombat, &Event::CreatureAIEvents::OnCreatureAIOnLeaveCombat);
-        zenith->RegisterEventTypeID<Generated::LuaCreatureAIEventDataOnUpdate>(Generated::LuaCreatureAIEventEnum::OnUpdate, &Event::CreatureAIEvents::OnCreatureAIUpdate);
-        zenith->RegisterEventTypeID<Generated::LuaCreatureAIEventDataOnResurrect>(Generated::LuaCreatureAIEventEnum::OnResurrect, &Event::CreatureAIEvents::OnCreatureAIOnResurrect);
-        zenith->RegisterEventTypeID<Generated::LuaCreatureAIEventDataOnDied>(Generated::LuaCreatureAIEventEnum::OnDied, &Event::CreatureAIEvents::OnCreatureAIOnDied);
+        zenith->RegisterEventType<MetaGen::Server::Lua::CreatureAIEvent>();
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::CreatureAIEventDataOnInit>(MetaGen::Server::Lua::CreatureAIEvent::OnInit, &Event::CreatureAIEvents::OnCreatureAIInit);
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::CreatureAIEventDataOnDeinit>(MetaGen::Server::Lua::CreatureAIEvent::OnDeinit, &Event::CreatureAIEvents::OnCreatureAIDeinit);
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::CreatureAIEventDataOnEnterCombat>(MetaGen::Server::Lua::CreatureAIEvent::OnEnterCombat, &Event::CreatureAIEvents::OnCreatureAIOnEnterCombat);
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::CreatureAIEventDataOnLeaveCombat>(MetaGen::Server::Lua::CreatureAIEvent::OnLeaveCombat, &Event::CreatureAIEvents::OnCreatureAIOnLeaveCombat);
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::CreatureAIEventDataOnUpdate>(MetaGen::Server::Lua::CreatureAIEvent::OnUpdate, &Event::CreatureAIEvents::OnCreatureAIUpdate);
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::CreatureAIEventDataOnResurrect>(MetaGen::Server::Lua::CreatureAIEvent::OnResurrect, &Event::CreatureAIEvents::OnCreatureAIOnResurrect);
+        zenith->RegisterEventTypeID<MetaGen::Server::Lua::CreatureAIEventDataOnDied>(MetaGen::Server::Lua::CreatureAIEvent::OnDied, &Event::CreatureAIEvents::OnCreatureAIOnDied);
 
-        zenith->RegisterEventType<Generated::PacketListEnum>();
-        for (const auto& pair : Generated::PacketListEnumMeta::EnumList)
+        zenith->RegisterEventType<MetaGen::PacketListEnum>();
+        for (const auto& pair : MetaGen::PacketListEnumMeta::ENUM_FIELD_LIST)
         {
-            zenith->RegisterEventTypeIDRaw(Generated::PacketListEnumMeta::EnumID, pair.second, 0);
+            zenith->RegisterEventTypeIDRaw(MetaGen::PacketListEnumMeta::ENUM_ID, pair.second, 0);
         }
     }
 }

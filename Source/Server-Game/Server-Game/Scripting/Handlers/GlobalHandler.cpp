@@ -7,7 +7,8 @@
 #include <Base/CVarSystem/CVarSystem.h>
 #include <Base/Util/StringUtils.h>
 
-#include <Meta/Generated/Server/LuaEvent.h>
+#include <MetaGen/EnumTraits.h>
+#include <MetaGen/Server/Lua/Lua.h>
 
 #include <Scripting/LuaManager.h>
 
@@ -32,7 +33,7 @@ namespace Scripting
     {
         const char* motd = CVarSystem::Get()->GetStringCVar(CVarCategory::Client, "scriptingMotd");
 
-        zenith->CallEvent(Generated::LuaServerEventEnum::Loaded, Generated::LuaServerEventDataLoaded{
+        zenith->CallEvent(MetaGen::Server::Lua::ServerEvent::Loaded, MetaGen::Server::Lua::ServerEventDataLoaded{
             .motd = motd
         });
     }

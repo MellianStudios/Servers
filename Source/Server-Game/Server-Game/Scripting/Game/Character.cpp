@@ -7,7 +7,7 @@
 
 #include <Server-Common/Database/Definitions.h>
 
-#include <Meta/Generated/Shared/UnitEnum.h>
+#include <MetaGen/Shared/Unit/Unit.h>
 
 #include <Scripting/Zenith.h>
 
@@ -40,8 +40,8 @@ namespace Scripting
         {
             i32 GetEquippedItem(Zenith* zenith, Character* character)
             {
-                auto slot = static_cast<Generated::ItemEquipSlotEnum>(zenith->CheckVal<u16>(2));
-                if (slot < Generated::ItemEquipSlotEnum::EquipmentStart || slot >= Generated::ItemEquipSlotEnum::EquipmentEnd)
+                auto slot = static_cast<MetaGen::Shared::Unit::ItemEquipSlotEnum>(zenith->CheckVal<u16>(2));
+                if (slot < MetaGen::Shared::Unit::ItemEquipSlotEnum::EquipmentStart || slot >= MetaGen::Shared::Unit::ItemEquipSlotEnum::EquipmentEnd)
                     return 0;
 
                 entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;

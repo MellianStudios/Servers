@@ -3,7 +3,7 @@
 
 #include <Gameplay/GameDefine.h>
 
-#include <Meta/Generated/Shared/ProximityTriggerEnum.h>
+#include <MetaGen/Shared/ProximityTrigger/ProximityTrigger.h>
 
 #include <entt/fwd.hpp>
 
@@ -90,7 +90,7 @@ namespace ECS::Events
     {
     public:
         std::string name;
-        Generated::ProximityTriggerFlagEnum flags;
+        MetaGen::Shared::ProximityTrigger::ProximityTriggerFlagEnum flags;
 
         u16 mapID;
         vec3 position;
@@ -102,7 +102,7 @@ namespace ECS::Events
         u32 triggerID;
 
         std::string name;
-        Generated::ProximityTriggerFlagEnum flags;
+        MetaGen::Shared::ProximityTrigger::ProximityTriggerFlagEnum flags;
 
         u16 mapID;
         vec3 position;

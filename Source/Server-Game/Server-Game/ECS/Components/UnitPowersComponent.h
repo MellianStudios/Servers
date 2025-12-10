@@ -1,7 +1,7 @@
 #pragma once
 #include <Base/Types.h>
 
-#include <Meta/Generated/Shared/UnitEnum.h>
+#include <MetaGen/Shared/Unit/Unit.h>
 
 #include <robinhood/robinhood.h>
 
@@ -22,8 +22,8 @@ namespace ECS
         public:
             f32 timeToNextUpdate = 0.0f;
 
-            robin_hood::unordered_map<Generated::PowerTypeEnum, UnitPower> powerTypeToValue;
-            robin_hood::unordered_set<Generated::PowerTypeEnum> dirtyPowerTypes;
+            robin_hood::unordered_map<MetaGen::Shared::Unit::PowerTypeEnum, UnitPower> powerTypeToValue;
+            robin_hood::unordered_set<MetaGen::Shared::Unit::PowerTypeEnum> dirtyPowerTypes;
         };
     }
 }

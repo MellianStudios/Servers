@@ -9,7 +9,7 @@ namespace Scripting
 {
     namespace Event::CreatureAIEvents
     {
-        void OnCreatureAIInit(Zenith* zenith, Generated::LuaCreatureAIEventDataOnInit& data)
+        void OnCreatureAIInit(Zenith* zenith, MetaGen::Server::Lua::CreatureAIEventDataOnInit& data)
         {
             zenith->CreateTable();
 
@@ -18,28 +18,28 @@ namespace Scripting
 
             zenith->AddTableField("scriptNameHash", data.scriptNameHash);
         }
-        void OnCreatureAIDeinit(Zenith* zenith, Generated::LuaCreatureAIEventDataOnDeinit& data)
+        void OnCreatureAIDeinit(Zenith* zenith, MetaGen::Server::Lua::CreatureAIEventDataOnDeinit& data)
         {
             zenith->CreateTable();
 
             auto* unit = Game::Unit::Create(zenith, static_cast<entt::entity>(data.creatureEntity));
             zenith->SetTableKey("unit");
         }
-        void OnCreatureAIOnEnterCombat(Zenith* zenith, Generated::LuaCreatureAIEventDataOnEnterCombat& data)
+        void OnCreatureAIOnEnterCombat(Zenith* zenith, MetaGen::Server::Lua::CreatureAIEventDataOnEnterCombat& data)
         {
             zenith->CreateTable();
 
             auto* unit = Game::Unit::Create(zenith, static_cast<entt::entity>(data.creatureEntity));
             zenith->SetTableKey("unit");
         }
-        void OnCreatureAIOnLeaveCombat(Zenith* zenith, Generated::LuaCreatureAIEventDataOnLeaveCombat& data)
+        void OnCreatureAIOnLeaveCombat(Zenith* zenith, MetaGen::Server::Lua::CreatureAIEventDataOnLeaveCombat& data)
         {
             zenith->CreateTable();
 
             auto* unit = Game::Unit::Create(zenith, static_cast<entt::entity>(data.creatureEntity));
             zenith->SetTableKey("unit");
         }
-        void OnCreatureAIUpdate(Zenith* zenith, Generated::LuaCreatureAIEventDataOnUpdate& data)
+        void OnCreatureAIUpdate(Zenith* zenith, MetaGen::Server::Lua::CreatureAIEventDataOnUpdate& data)
         {
             zenith->CreateTable();
 
@@ -48,7 +48,7 @@ namespace Scripting
 
             zenith->AddTableField("deltaTime", data.deltaTime);
         }
-        void OnCreatureAIOnResurrect(Zenith* zenith, Generated::LuaCreatureAIEventDataOnResurrect& data)
+        void OnCreatureAIOnResurrect(Zenith* zenith, MetaGen::Server::Lua::CreatureAIEventDataOnResurrect& data)
         {
             zenith->CreateTable();
 
@@ -62,7 +62,7 @@ namespace Scripting
                 zenith->SetTableKey("resurrector");
             }
         }
-        void OnCreatureAIOnDied(Zenith* zenith, Generated::LuaCreatureAIEventDataOnDied& data)
+        void OnCreatureAIOnDied(Zenith* zenith, MetaGen::Server::Lua::CreatureAIEventDataOnDied& data)
         {
             zenith->CreateTable();
 

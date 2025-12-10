@@ -3,7 +3,7 @@
 #include "Server-Game/Scripting/Game/ItemTemplate.h"
 #include "Server-Game/Scripting/Game/ItemWeaponTemplate.h"
 
-#include <Meta/Generated/Shared/UnitEnum.h>
+#include <MetaGen/Shared/Unit/Unit.h>
 
 #include <Scripting/Zenith.h>
 
@@ -18,9 +18,9 @@ namespace Scripting
         Game::ItemWeaponTemplate::Register(zenith);
 
         {
-            zenith->CreateTable(Generated::ItemEquipSlotEnumMeta::EnumName.data());
+            zenith->CreateTable(MetaGen::Shared::Unit::ItemEquipSlotEnumMeta::ENUM_NAME.data());
 
-            for (const auto& pair : Generated::ItemEquipSlotEnumMeta::EnumList)
+            for (const auto& pair : MetaGen::Shared::Unit::ItemEquipSlotEnumMeta::ENUM_FIELD_LIST)
             {
                 zenith->AddTableField(pair.first.data(), pair.second);
             }

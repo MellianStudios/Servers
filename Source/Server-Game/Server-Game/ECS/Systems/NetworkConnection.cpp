@@ -60,10 +60,10 @@
 #include <Gameplay/ECS/Components/UnitFields.h>
 #include <Gameplay/Network/GameMessageRouter.h>
 
-#include <Meta/Generated/Shared/ClientDB.h>
-#include <Meta/Generated/Shared/NetworkEnum.h>
-#include <Meta/Generated/Shared/NetworkPacket.h>
-#include <Meta/Generated/Shared/UnitEnum.h>
+#include <MetaGen/PacketList.h>
+#include <MetaGen/Shared/ClientDB/ClientDB.h>
+#include <MetaGen/Shared/Packet/Packet.h>
+#include <MetaGen/Shared/Unit/Unit.h>
 
 #include <Network/Server.h>
 
@@ -108,8 +108,8 @@ namespace ECS::Systems
         u8 resultAsValue = *reinterpret_cast<u8*>(&result);
         if (resultAsValue != 0)
         {
-            Util::Network::SendPacket(networkState, socketID, Generated::CheatCommandResultPacket{
-                .command = static_cast<u8>(Generated::CheatCommandEnum::CharacterAdd),
+            Util::Network::SendPacket(networkState, socketID, MetaGen::Shared::Packet::ServerCheatCommandResultPacket{
+                .command = static_cast<u8>(MetaGen::Shared::Cheat::CheatCommandEnum::CharacterAdd),
                 .result = resultAsValue,
                 .response = "Unknown"
                 });
@@ -129,8 +129,8 @@ namespace ECS::Systems
 
         u8 cheatCommandResultVal = *reinterpret_cast<u8*>(&cheatCommandResult);
 
-        Util::Network::SendPacket(networkState, socketID, Generated::CheatCommandResultPacket{
-            .command = static_cast<u8>(Generated::CheatCommandEnum::CharacterAdd),
+        Util::Network::SendPacket(networkState, socketID, MetaGen::Shared::Packet::ServerCheatCommandResultPacket{
+            .command = static_cast<u8>(MetaGen::Shared::Cheat::CheatCommandEnum::CharacterAdd),
             .result = cheatCommandResultVal,
             .response = "Unknown"
             });
@@ -168,8 +168,8 @@ namespace ECS::Systems
             // Send Packet with Result
             u8 resultAsValue = *reinterpret_cast<u8*>(&result);
 
-            Util::Network::SendPacket(networkState, socketID, Generated::CheatCommandResultPacket{
-                .command = static_cast<u8>(Generated::CheatCommandEnum::CharacterRemove),
+            Util::Network::SendPacket(networkState, socketID, MetaGen::Shared::Packet::ServerCheatCommandResultPacket{
+                .command = static_cast<u8>(MetaGen::Shared::Cheat::CheatCommandEnum::CharacterRemove),
                 .result = resultAsValue,
                 .response = "Unknown"
                 });
@@ -191,8 +191,8 @@ namespace ECS::Systems
 
         u8 cheatCommandResultVal = *reinterpret_cast<u8*>(&result);
 
-        Util::Network::SendPacket(networkState, socketID, Generated::CheatCommandResultPacket{
-            .command = static_cast<u8>(Generated::CheatCommandEnum::CharacterRemove),
+        Util::Network::SendPacket(networkState, socketID, MetaGen::Shared::Packet::ServerCheatCommandResultPacket{
+            .command = static_cast<u8>(MetaGen::Shared::Cheat::CheatCommandEnum::CharacterRemove),
             .result = cheatCommandResultVal,
             .response = "Unknown"
             });
@@ -371,7 +371,7 @@ namespace ECS::Systems
     {
         auto& unitFields = world.Get<Components::UnitFields>(entity);
 
-        u32 levelRaceGenderClassPacked = unitFields.fields.GetField<u32>(Generated::UnitNetFieldsEnum::LevelRaceGenderClassPacked);
+        u32 levelRaceGenderClassPacked = unitFields.fields.GetField<u32>(MetaGen::Shared::NetField::UnitNetFieldEnum::LevelRaceGenderClassPacked);
         GameDefine::UnitRace unitRace = static_cast<GameDefine::UnitRace>((levelRaceGenderClassPacked >> 16) & 0x7F);
         GameDefine::UnitGender unitGender = static_cast<GameDefine::UnitGender>((levelRaceGenderClassPacked >> 23) & 0x3);
 
@@ -509,7 +509,7 @@ namespace ECS::Systems
             if (Util::Cache::GetItemInstanceByID(gameCache, itemInstanceID, itemInstance))
             {
                 ObjectGUID itemInstanceGUID = ObjectGUID::CreateItem(itemInstanceID);
-                Util::Network::SendPacket(networkState, socketID, Generated::ItemAddPacket{
+                Util::Network::SendPacket(networkState, socketID, MetaGen::Shared::Packet::ServerItemAddPacket{
                     .guid = itemInstanceGUID,
                     .itemID = itemInstance->itemID,
                     .count = itemInstance->count,
@@ -941,7 +941,7 @@ namespace ECS::Systems
         Events::ProximityTriggerCreate event =
         {
             .name = name,
-            .flags = static_cast<Generated::ProximityTriggerFlagEnum>(flags),
+            .flags = static_cast<MetaGen::Shared::ProximityTrigger::ProximityTriggerFlagEnum>(flags),
 
             .mapID = mapID,
             .position = position,
@@ -1042,7 +1042,7 @@ namespace ECS::Systems
     bool HandleOnCheatSpellProcDataSet(entt::registry* registry, World& world, Network::SocketID socketID, entt::entity entity, Network::Message& message)
     {
         u32 spellProcDataID = 0;
-        Generated::SpellProcDataRecord spellProcData;
+        MetaGen::Shared::ClientDB::SpellProcDataRecord spellProcData;
 
         if (!message.buffer->GetU32(spellProcDataID))
             return false;
@@ -1072,7 +1072,7 @@ namespace ECS::Systems
     bool HandleOnCheatSpellProcLinkSet(entt::registry* registry, World& world, Network::SocketID socketID, entt::entity entity, Network::Message& message)
     {
         u32 spellProcLinkID = 0;
-        Generated::SpellProcLinkRecord spellProcLink;
+        MetaGen::Shared::ClientDB::SpellProcLinkRecord spellProcLink;
 
         if (!message.buffer->GetU32(spellProcLinkID))
             return false;
@@ -1151,158 +1151,158 @@ namespace ECS::Systems
         auto& networkState = ctx.get<Singletons::NetworkState>();
         auto& worldState = ctx.get<Singletons::WorldState>();
         
-        auto command = Generated::CheatCommandEnum::None;
+        auto command = MetaGen::Shared::Cheat::CheatCommandEnum::None;
         if (!message.buffer->Get(command))
             return false;
 
         switch (command)
         {
-            case Generated::CheatCommandEnum::CharacterAdd:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::CharacterAdd:
             {
                 return HandleOnCheatCharacterAdd(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::CharacterRemove:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::CharacterRemove:
             {
                 return HandleOnCheatCharacterRemove(registry, *world, socketID, entity, message);
             }
 
-            case Generated::CheatCommandEnum::CreatureAdd:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::CreatureAdd:
             {
                 return HandleOnCheatCreatureAdd(registry, *world, socketID, entity, message);
             }
 
-            case Generated::CheatCommandEnum::CreatureRemove:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::CreatureRemove:
             {
                 return HandleOnCheatCreatureRemove(registry, *world, socketID, entity, message);
             }
 
-            case Generated::CheatCommandEnum::CreatureInfo:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::CreatureInfo:
             {
                 return HandleOnCheatCreatureInfo(registry, *world, socketID, entity, message);
             }
 
-            case Generated::CheatCommandEnum::Damage:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::Damage:
             {
                 return HandleOnCheatDamage(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::Kill:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::Kill:
             {
                 return HandleOnCheatKill(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::Resurrect:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::Resurrect:
             {
                 return HandleOnCheatResurrect(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::UnitMorph:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::UnitMorph:
             {
                 return HandleOnCheatMorph(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::UnitDemorph:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::UnitDemorph:
             {
                 return HandleOnCheatDemorph(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::UnitSetRace:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::UnitSetRace:
             {
                 return HandleOnCheatUnitSetRace(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::UnitSetGender:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::UnitSetGender:
             {
                 return HandleOnCheatUnitSetGender(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::UnitSetClass:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::UnitSetClass:
             {
                 return HandleOnCheatUnitSetClass(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::UnitSetLevel:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::UnitSetLevel:
             {
                 return HandleOnCheatUnitSetLevel(registry, *world, socketID, entity, message);
             }
 
-            case Generated::CheatCommandEnum::ItemAdd:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::ItemAdd:
             {
                 return HandleOnCheatItemAdd(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::ItemRemove:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::ItemRemove:
             {
                 return HandleOnCheatItemRemove(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::ItemSetTemplate:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::ItemSetTemplate:
             {
                 return HandleOnCheatItemSetTemplate(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::ItemSetStatTemplate:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::ItemSetStatTemplate:
             {
                 return HandleOnCheatSetItemStatTemplate(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::ItemSetArmorTemplate:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::ItemSetArmorTemplate:
             {
                 return HandleOnCheatSetItemArmorTemplate(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::ItemSetWeaponTemplate:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::ItemSetWeaponTemplate:
             {
                 return HandleOnCheatSetItemWeaponTemplate(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::ItemSetShieldTemplate:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::ItemSetShieldTemplate:
             {
                 return HandleOnCheatSetItemShieldTemplate(registry, *world, socketID, entity, message);
             }
 
-            case Generated::CheatCommandEnum::MapAdd:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::MapAdd:
             {
                 return HandleOnCheatMapAdd(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::GotoAddHere:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::GotoAddHere:
             {
                 return HandleOnCheatGotoAddHere(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::GotoRemove:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::GotoRemove:
             {
                 return HandleOnCheatGotoRemove(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::GotoMap:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::GotoMap:
             {
                 return HandleOnCheatGotoMap(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::GotoLocation:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::GotoLocation:
             {
                 return HandleOnCheatGotoLocation(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::GotoXYZ:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::GotoXYZ:
             {
                 return HandleOnCheatGotoXYZ(registry, *world, socketID, entity, message);
             }
 
-            case Generated::CheatCommandEnum::TriggerAdd:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::TriggerAdd:
             {
                 return HandleOnCheatTriggerAdd(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::TriggerRemove:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::TriggerRemove:
             {
                 return HandleOnCheatTriggerRemove(registry, *world, socketID, entity, message);
             }
 
-            case Generated::CheatCommandEnum::SpellSet:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::SpellSet:
             {
                 return HandleOnCheatSpellSet(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::SpellEffectSet:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::SpellEffectSet:
             {
                 return HandleOnCheatSpellEffectSet(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::SpellProcDataSet:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::SpellProcDataSet:
             {
                 return HandleOnCheatSpellProcDataSet(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::SpellProcLinkSet:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::SpellProcLinkSet:
             {
                 return HandleOnCheatSpellProcLinkSet(registry, *world, socketID, entity, message);
             }
 
-            case Generated::CheatCommandEnum::CreatureAddScript:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::CreatureAddScript:
             {
                 return HandleOnCheatCreatureAddScript(registry, *world, socketID, entity, message);
             }
-            case Generated::CheatCommandEnum::CreatureRemoveScript:
+            case MetaGen::Shared::Cheat::CheatCommandEnum::CreatureRemoveScript:
             {
                 return HandleOnCheatCreatureRemoveScript(registry, *world, socketID, entity, message);
             }
@@ -1313,7 +1313,7 @@ namespace ECS::Systems
         return true;
     }
 
-    bool HandleOnConnect(World* world, entt::entity entity, Network::SocketID socketID, Generated::ConnectPacket& packet)
+    bool HandleOnConnect(World* world, entt::entity entity, Network::SocketID socketID, MetaGen::Shared::Packet::ClientConnectPacket& packet)
     {
         if (!StringUtils::StringIsAlphaAndAtLeastLength(packet.accountName, 2))
             return false;
@@ -1332,7 +1332,7 @@ namespace ECS::Systems
 
         return true;
     }
-    bool HandleOnAuthChallenge(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientAuthChallengePacket& packet)
+    bool HandleOnAuthChallenge(World* world, entt::entity entity, Network::SocketID socketID, MetaGen::Shared::Packet::ClientAuthChallengePacket& packet)
     {
         entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
         auto& networkState = registry->ctx().get<Singletons::NetworkState>();
@@ -1356,14 +1356,14 @@ namespace ECS::Systems
 
         authInfo.state = AuthenticationState::Step2;
 
-        Generated::ServerAuthProofPacket authProofPacket;
+        MetaGen::Shared::Packet::ServerAuthProofPacket authProofPacket;
         std::memcpy(authProofPacket.proof.data(), response2, crypto_spake_RESPONSE2BYTES);
 
         Util::Network::SendPacket(networkState, socketID, authProofPacket);
 
         return true;
     }
-    bool HandleOnAuthProof(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientAuthProofPacket& packet)
+    bool HandleOnAuthProof(World* world, entt::entity entity, Network::SocketID socketID, MetaGen::Shared::Packet::ClientAuthProofPacket& packet)
     {
         entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
         auto& networkState = registry->ctx().get<Singletons::NetworkState>();
@@ -1394,7 +1394,7 @@ namespace ECS::Systems
 
         return true;
     }
-    bool HandleOnCharacterSelect(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientCharacterSelectPacket& packet)
+    bool HandleOnCharacterSelect(World* world, entt::entity entity, Network::SocketID socketID, MetaGen::Shared::Packet::ClientCharacterSelectPacket& packet)
     {
         if (world || entity == entt::null)
             return false;
@@ -1426,7 +1426,7 @@ namespace ECS::Systems
 
         return true;
     }
-    bool HandleOnCharacterLogout(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientCharacterLogoutPacket& packet)
+    bool HandleOnCharacterLogout(World* world, entt::entity entity, Network::SocketID socketID, MetaGen::Shared::Packet::ClientCharacterLogoutPacket& packet)
     {
         if (!world || entity == entt::null)
             return false;
@@ -1440,10 +1440,10 @@ namespace ECS::Systems
         }
 
         networkState.server->SetSocketIDLane(socketID, Network::DEFAULT_LANE_ID);
-        ECS::Util::Network::SendPacket(networkState, socketID, Generated::ServerCharacterLogoutPacket{});
+        ECS::Util::Network::SendPacket(networkState, socketID, MetaGen::Shared::Packet::ServerCharacterLogoutPacket{});
         return true;
     }
-    bool HandleOnPing(World* world, entt::entity entity, Network::SocketID socketID, Generated::PingPacket& packet)
+    bool HandleOnPing(World* world, entt::entity entity, Network::SocketID socketID, MetaGen::Shared::Packet::ClientPingPacket& packet)
     {
         if (!world || entity == entt::null)
             return true;
@@ -1481,14 +1481,14 @@ namespace ECS::Systems
         netInfo.numLatePings = 0;
         netInfo.lastPingTime = currentTime;
 
-        Util::Network::SendPacket(networkState, socketID, Generated::ServerUpdateStatsPacket{
+        Util::Network::SendPacket(networkState, socketID, MetaGen::Shared::Packet::ServerUpdateStatsPacket{
             .serverTickTime = serverDiff
         });
 
         return true;
     }
 
-    bool HandleOnClientUnitTargetUpdate(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientUnitTargetUpdatePacket& packet)
+    bool HandleOnClientUnitTargetUpdate(World* world, entt::entity entity, Network::SocketID socketID, MetaGen::Shared::Packet::ClientUnitTargetUpdatePacket& packet)
     {
         entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
         auto& networkState = registry->ctx().get<Singletons::NetworkState>();
@@ -1500,14 +1500,14 @@ namespace ECS::Systems
         entt::entity targetEntity = world->GetEntity(packet.targetGUID);
         targetInfo.target = world->ValidEntity(targetEntity) ? targetEntity : entt::null;
 
-        ECS::Util::Network::SendToNearby(networkState, *world, entity, visibilityInfo, false, Generated::ServerUnitTargetUpdatePacket{
+        ECS::Util::Network::SendToNearby(networkState, *world, entity, visibilityInfo, false, MetaGen::Shared::Packet::ServerUnitTargetUpdatePacket{
             .guid = objectInfo.guid,
             .targetGUID = packet.targetGUID
         });
 
         return true;
     }
-    bool HandleOnClientUnitMove(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientUnitMovePacket& packet)
+    bool HandleOnClientUnitMove(World* world, entt::entity entity, Network::SocketID socketID, MetaGen::Shared::Packet::ClientUnitMovePacket& packet)
     {
         entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
         auto& ctx = registry->ctx();
@@ -1522,7 +1522,7 @@ namespace ECS::Systems
         world->playerVisData.Update(objectInfo.guid, packet.position.x, packet.position.z);
 
         auto& visibilityInfo = world->Get<Components::VisibilityInfo>(entity);
-        ECS::Util::Network::SendToNearby(networkState, *world, entity, visibilityInfo, false, Generated::ServerUnitMovePacket{
+        ECS::Util::Network::SendToNearby(networkState, *world, entity, visibilityInfo, false, MetaGen::Shared::Packet::ServerUnitMovePacket{
             .guid = objectInfo.guid,
             .movementFlags = packet.movementFlags,
             .position = packet.position,
@@ -1532,7 +1532,7 @@ namespace ECS::Systems
 
         return true;
     }
-    bool HandleOnClientContainerSwapSlots(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientContainerSwapSlotsPacket& packet)
+    bool HandleOnClientContainerSwapSlots(World* world, entt::entity entity, Network::SocketID socketID, MetaGen::Shared::Packet::SharedContainerSwapSlotsPacket& packet)
     {
         if (packet.srcContainer == packet.dstContainer && packet.srcSlot == packet.dstSlot)
             return false;
@@ -1631,7 +1631,7 @@ namespace ECS::Systems
 
         if (Util::Persistence::Character::ItemSwap(gameCache, characterID, *srcContainer, srcContainerID, packet.srcSlot, *dstContainer, dstContainerID, packet.dstSlot) == ECS::Result::Success)
         {
-            Util::Network::SendPacket(networkState, socketID, Generated::ServerContainerSwapSlotsPacket{
+            Util::Network::SendPacket(networkState, socketID, MetaGen::Shared::Packet::SharedContainerSwapSlotsPacket{
                 .srcContainer = packet.srcContainer,
                 .dstContainer = packet.dstContainer,
                 .srcSlot = packet.srcSlot,
@@ -1640,8 +1640,8 @@ namespace ECS::Systems
 
             if (srcContainerID == 0)
             {
-                auto equippedSlot = static_cast<Generated::ItemEquipSlotEnum>(packet.srcSlot);
-                if (equippedSlot >= Generated::ItemEquipSlotEnum::EquipmentStart && equippedSlot <= Generated::ItemEquipSlotEnum::EquipmentEnd)
+                auto equippedSlot = static_cast<MetaGen::Shared::Unit::ItemEquipSlotEnum>(packet.srcSlot);
+                if (equippedSlot >= MetaGen::Shared::Unit::ItemEquipSlotEnum::EquipmentStart && equippedSlot <= MetaGen::Shared::Unit::ItemEquipSlotEnum::EquipmentEnd)
                 {
                     const Database::ContainerItem& containerItem = srcContainer->GetItem(packet.srcSlot);
                     bool isContainerItemEmpty = containerItem.IsEmpty();
@@ -1654,7 +1654,7 @@ namespace ECS::Systems
                             itemID = itemInstance->itemID;
                     }
 
-                    ECS::Util::Network::SendToNearby(networkState, *world, entity, visibilityInfo, true, Generated::ServerUnitEquippedItemUpdatePacket{
+                    ECS::Util::Network::SendToNearby(networkState, *world, entity, visibilityInfo, true, MetaGen::Shared::Packet::ServerUnitEquippedItemUpdatePacket{
                         .guid = objectInfo.guid,
                         .slot = static_cast<u8>(packet.srcSlot),
                         .itemID = itemID
@@ -1669,8 +1669,8 @@ namespace ECS::Systems
 
             if (dstContainerID == 0)
             {
-                auto equippedSlot = static_cast<Generated::ItemEquipSlotEnum>(packet.dstSlot);
-                if (equippedSlot >= Generated::ItemEquipSlotEnum::EquipmentStart && equippedSlot <= Generated::ItemEquipSlotEnum::EquipmentEnd)
+                auto equippedSlot = static_cast<MetaGen::Shared::Unit::ItemEquipSlotEnum>(packet.dstSlot);
+                if (equippedSlot >= MetaGen::Shared::Unit::ItemEquipSlotEnum::EquipmentStart && equippedSlot <= MetaGen::Shared::Unit::ItemEquipSlotEnum::EquipmentEnd)
                 {
                     const Database::ContainerItem& containerItem = dstContainer->GetItem(packet.dstSlot);
                     bool isContainerItemEmpty = containerItem.IsEmpty();
@@ -1683,7 +1683,7 @@ namespace ECS::Systems
                             itemID = itemInstance->itemID;
                     }
 
-                    ECS::Util::Network::SendToNearby(networkState, *world, entity, visibilityInfo, true, Generated::ServerUnitEquippedItemUpdatePacket{
+                    ECS::Util::Network::SendToNearby(networkState, *world, entity, visibilityInfo, true, MetaGen::Shared::Packet::ServerUnitEquippedItemUpdatePacket{
                         .guid = objectInfo.guid,
                         .slot = static_cast<u8>(packet.dstSlot),
                         .itemID = itemID
@@ -1700,7 +1700,7 @@ namespace ECS::Systems
         return true;
     }
 
-    bool HandleOnClientTriggerEnter(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientTriggerEnterPacket& packet)
+    bool HandleOnClientTriggerEnter(World* world, entt::entity entity, Network::SocketID socketID, MetaGen::Shared::Packet::ClientTriggerEnterPacket& packet)
     {
         entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
         auto& ctx = registry->ctx();
@@ -1715,7 +1715,7 @@ namespace ECS::Systems
         auto& proximityTrigger = world->Get<Components::ProximityTrigger>(triggerEntity);
 
         // Only process if the server is authoritative for this trigger
-        bool isServerAuthoritative = (proximityTrigger.flags & Generated::ProximityTriggerFlagEnum::IsServerAuthorative) != Generated::ProximityTriggerFlagEnum::None;
+        bool isServerAuthoritative = (proximityTrigger.flags & MetaGen::Shared::ProximityTrigger::ProximityTriggerFlagEnum::IsServerAuthorative) != MetaGen::Shared::ProximityTrigger::ProximityTriggerFlagEnum::None;
         if (!isServerAuthoritative)
             return false;
 
@@ -1731,7 +1731,7 @@ namespace ECS::Systems
 
         return true;
     }
-    bool HandleOnClientSendChatMessage(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientSendChatMessagePacket& packet)
+    bool HandleOnClientSendChatMessage(World* world, entt::entity entity, Network::SocketID socketID, MetaGen::Shared::Packet::ClientSendChatMessagePacket& packet)
     {
         entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
         auto& ctx = registry->ctx();
@@ -1740,14 +1740,14 @@ namespace ECS::Systems
 
         auto& objectInfo = world->Get<Components::ObjectInfo>(entity);
         auto& visibilityInfo = world->Get<Components::VisibilityInfo>(entity);
-        ECS::Util::Network::SendToNearby(networkState, *world, entity, visibilityInfo, true, Generated::ServerSendChatMessagePacket{
+        ECS::Util::Network::SendToNearby(networkState, *world, entity, visibilityInfo, true, MetaGen::Shared::Packet::ServerSendChatMessagePacket{
             .guid = objectInfo.guid,
             .message = packet.message
         });
 
         return true;
     }
-    bool HandleOnClientSpellCast(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientSpellCastPacket& packet)
+    bool HandleOnClientSpellCast(World* world, entt::entity entity, Network::SocketID socketID, MetaGen::Shared::Packet::ClientSpellCastPacket& packet)
     {
         entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
         auto& gameCache = registry->ctx().get<Singletons::GameCache>();
@@ -1771,7 +1771,7 @@ namespace ECS::Systems
 
         if (result != 0x0)
         {
-            Util::Network::SendPacket(networkState, socketID, Generated::ServerSpellCastResultPacket{
+            Util::Network::SendPacket(networkState, socketID, MetaGen::Shared::Packet::ServerSpellCastResultPacket{
                 .result = result,
             });
 
@@ -1820,14 +1820,14 @@ namespace ECS::Systems
         spellInfo.castTime = spell->castTime;
         spellInfo.timeToCast = spellInfo.castTime;
 
-        Util::Network::SendPacket(networkState, socketID, Generated::ServerSpellCastResultPacket{
+        Util::Network::SendPacket(networkState, socketID, MetaGen::Shared::Packet::ServerSpellCastResultPacket{
             .result = result,
         });
 
         return true;
     }
     
-    bool HandleOnClientPathGenerate(World* world, entt::entity entity, Network::SocketID socketID, Generated::ClientPathGeneratePacket& packet)
+    bool HandleOnClientPathGenerate(World* world, entt::entity entity, Network::SocketID socketID, MetaGen::Shared::Packet::ClientPathGeneratePacket& packet)
     {
         entt::registry* registry = ServiceLocator::GetEnttRegistries()->gameRegistry;
         auto& networkState = registry->ctx().get<Singletons::NetworkState>();
@@ -1884,7 +1884,7 @@ namespace ECS::Systems
         if (straightPathCount > 0)
         {
             std::shared_ptr<Bytebuffer> buffer = Bytebuffer::Borrow<8192>();
-            ECS::Util::MessageBuilder::CreatePacket(buffer, Generated::ServerPathVisualizationPacket::PACKET_ID, [&, straightPathCount]()
+            ECS::Util::MessageBuilder::CreatePacket(buffer, MetaGen::Shared::Packet::ServerPathVisualizationPacket::PACKET_ID, [&, straightPathCount]()
             {
                 u32 numPathCount = static_cast<u32>(straightPathCount);
                 buffer->PutU32(numPathCount);
@@ -1909,7 +1909,7 @@ namespace ECS::Systems
             networkState.server = std::make_unique<Network::Server>(port);
             networkState.messageRouter = std::make_unique<Network::MessageRouter>();
 
-            networkState.messageRouter->SetMessageHandler(Generated::SendCheatCommandPacket::PACKET_ID, Network::MessageHandler(Network::ConnectionStatus::Connected, 0u, -1, &HandleOnSendCheatCommand));
+            networkState.messageRouter->SetMessageHandler(MetaGen::Shared::Packet::ClientSendCheatCommandPacket::PACKET_ID, Network::MessageHandler(Network::ConnectionStatus::Connected, 0u, -1, &HandleOnSendCheatCommand));
 
             networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnConnect);
             networkState.messageRouter->RegisterPacketHandler(Network::ConnectionStatus::Connected, HandleOnAuthChallenge);

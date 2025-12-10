@@ -20,7 +20,7 @@ local function OnClientConnect(eventID : PacketList, data : any)
 
     return true
 end
-RegisterEvent(PacketList.Connect, OnClientConnect)
+RegisterEvent(PacketListEnum.ClientConnectPacket, OnClientConnect)
 
 local function OnCharacterLogin(eventID : CharacterEvent, data : CharacterEventDataOnLogin)
     print(`Character Logged In: {data.character:GetID()}`)

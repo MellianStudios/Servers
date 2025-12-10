@@ -10,4 +10,4 @@ local function HandleEffect(eventID : AuraEvent, data : AuraEventDataOnHandleEff
     local heal = math.random(minHeal, maxHeal) * stacks
     data.aura:Heal(heal)
 end
-auraHandler:RegisterGenericEffectTypeCallback(SpellEffectType.AuraPeriodicHeal, HandleEffect)
+auraHandler:RegisterGenericEffectTypeCallback(SpellEffectTypeEnum.AuraPeriodicHeal, HandleEffect)

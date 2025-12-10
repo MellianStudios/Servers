@@ -1,7 +1,7 @@
 #pragma once
 #include <Base/Types.h>
 
-#include <Meta/Generated/Server/LuaEvent.h>
+#include <MetaGen/Server/Lua/Lua.h>
 
 #include <Scripting/Defines.h>
 

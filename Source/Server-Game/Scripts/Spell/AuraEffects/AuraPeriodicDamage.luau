@@ -11,4 +11,4 @@ local function HandleEffect(eventID : AuraEvent, data : AuraEventDataOnHandleEff
     data.aura:Damage(damage)
 end
 
-auraHandler:RegisterGenericEffectTypeCallback(SpellEffectType.AuraPeriodicDamage, HandleEffect)
+auraHandler:RegisterGenericEffectTypeCallback(SpellEffectTypeEnum.AuraPeriodicDamage, HandleEffect)

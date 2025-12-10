@@ -11,4 +11,4 @@ local function HandleEffect(eventID : SpellEvent, data : SpellEventDataOnHandleE
     local target = data.spell:GetTarget() or data.caster
     data.caster:AddAura(target, spellID, stacks)
 end
-spellHandler:RegisterGenericEffectTypeCallback(SpellEffectType.AuraApply, HandleEffect)
+spellHandler:RegisterGenericEffectTypeCallback(SpellEffectTypeEnum.AuraApply, HandleEffect)

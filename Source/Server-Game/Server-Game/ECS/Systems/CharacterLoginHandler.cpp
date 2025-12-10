@@ -22,7 +22,8 @@
 #include <Base/Util/DebugHandler.h>
 #include <Base/Util/StringUtils.h>
 
-#include <Meta/Generated/Shared/NetworkPacket.h>
+#include <MetaGen/EnumTraits.h>
+#include <MetaGen/Shared/Packet/Packet.h>
 
 #include <Network/Server.h>
 
@@ -79,7 +80,7 @@ namespace ECS::Systems
                         u32 charNameHash = StringUtils::fnv1a_32(request.name.c_str(), request.name.length());
                         gameCache.characterTables.charNameHashToCharID[charNameHash] = characterID;
 
-                        Util::Network::SendPacket(networkState, socketID, Generated::ConnectResultPacket{
+                        Util::Network::SendPacket(networkState, socketID, MetaGen::Shared::Packet::ServerConnectResultPacket{
                             .result = static_cast<u8>(Network::ConnectResult::Success)
                         });
 
@@ -88,7 +89,7 @@ namespace ECS::Systems
                 }
             }
 
-            Util::Network::SendPacket(networkState, socketID, Generated::ConnectResultPacket{
+            Util::Network::SendPacket(networkState, socketID, MetaGen::Shared::Packet::ServerConnectResultPacket{
                 .result = static_cast<u8>(Network::ConnectResult::Failed)
             });
 

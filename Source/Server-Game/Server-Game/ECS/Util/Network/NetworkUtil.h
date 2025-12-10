@@ -60,7 +60,7 @@ namespace ECS
                 ::Network::MessageHeader header =
                 {
                     .opcode = PacketType::PACKET_ID,
-                    .size = packet.GetSerializedSize()
+                    .size = static_cast<u16>(packet.GetSerializedSize())
                 };
 
                 buffer->Put(header);
@@ -75,7 +75,7 @@ namespace ECS
         bool AppendPacketToBuffer(std::shared_ptr<Bytebuffer>& buffer, Packets&&... packets)
         {
             bool failed = false;
-            u32 totalSize = ((sizeof(::Network::MessageHeader) + std::decay_t<Packets>().GetSerializedSize()) + ...);
+            u32 totalSize = ((sizeof(::Network::MessageHeader) + packets.GetSerializedSize()) + ...);
 
             auto AppendPacket = [&](auto&& packet)
             {
@@ -84,7 +84,7 @@ namespace ECS
                 ::Network::MessageHeader header =
                 {
                     .opcode = PacketType::PACKET_ID,
-                    .size = packet.GetSerializedSize()
+                    .size = static_cast<u16>(packet.GetSerializedSize())
                 };
 
                 failed |= !buffer->Put(header);

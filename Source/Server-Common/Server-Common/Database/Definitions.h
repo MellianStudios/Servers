@@ -4,8 +4,8 @@
 
 #include <Gameplay/GameDefine.h>
 
-#include <Meta/Generated/Shared/SpellEnum.h>
-#include <Meta/Generated/Shared/ProximityTriggerEnum.h>
+#include <MetaGen/Shared/Spell/Spell.h>
+#include <MetaGen/Shared/ProximityTrigger/ProximityTrigger.h>
 
 #include <robinhood/robinhood.h>
 
@@ -299,7 +299,7 @@ namespace Database
     public:
         u32 id = 0;
         std::string name = "";
-        Generated::ProximityTriggerFlagEnum flags = Generated::ProximityTriggerFlagEnum::None;
+        MetaGen::Shared::ProximityTrigger::ProximityTriggerFlagEnum flags = MetaGen::Shared::ProximityTrigger::ProximityTriggerFlagEnum::None;
         u16 mapID = 0;
         vec3 position = vec3(0.0f, 0.0f, 0.0f);
         vec3 extents = vec3(1.0f, 1.0f, 1.0f);
@@ -332,7 +332,7 @@ namespace Database
     public:
         u64 procEffectsMask = 0;
 
-        std::array<u16, (Generated::SpellProcPhaseTypeEnumMeta::Type)Generated::SpellProcPhaseTypeEnum::Count> phaseLinkMask = { 0, 0, 0, 0, 0, 0 };
+        std::array<u16, (MetaGen::Shared::Spell::SpellProcPhaseTypeEnumMeta::Type)MetaGen::Shared::Spell::SpellProcPhaseTypeEnum::Count> phaseLinkMask = { 0, 0, 0, 0, 0, 0 };
         std::vector<SpellProcLink> links;
     };
 

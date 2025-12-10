@@ -19,7 +19,7 @@
 #include <Base/Util/JsonUtils.h>
 #include <Base/Util/DebugHandler.h>
 
-#include <Meta/Generated/Server/LuaEnum.h>
+#include <MetaGen/Server/Lua/Lua.h>
 
 #include <Scripting/LuaManager.h>
 #include <Scripting/Zenith.h>
@@ -156,15 +156,15 @@ bool Application::Init()
         _luaManager = new Scripting::LuaManager();
         ServiceLocator::SetLuaManager(_luaManager);
 
-        _luaManager->PrepareToAddLuaHandlers((Scripting::LuaHandlerID)Generated::LuaHandlerTypeEnum::Count);
-        _luaManager->SetLuaHandler((Scripting::LuaHandlerID)Generated::LuaHandlerTypeEnum::Global, new Scripting::GlobalHandler());
-        _luaManager->SetLuaHandler((Scripting::LuaHandlerID)Generated::LuaHandlerTypeEnum::Event, new Scripting::EventHandler());
-        _luaManager->SetLuaHandler((Scripting::LuaHandlerID)Generated::LuaHandlerTypeEnum::Message, new Scripting::PacketHandler());
-        _luaManager->SetLuaHandler((Scripting::LuaHandlerID)Generated::LuaHandlerTypeEnum::Unit, new Scripting::UnitHandler());
-        _luaManager->SetLuaHandler((Scripting::LuaHandlerID)Generated::LuaHandlerTypeEnum::Character, new Scripting::CharacterHandler());
-        _luaManager->SetLuaHandler((Scripting::LuaHandlerID)Generated::LuaHandlerTypeEnum::Creature, new Scripting::CreatureHandler());
-        _luaManager->SetLuaHandler((Scripting::LuaHandlerID)Generated::LuaHandlerTypeEnum::Spell, new Scripting::SpellHandler());
-        _luaManager->SetLuaHandler((Scripting::LuaHandlerID)Generated::LuaHandlerTypeEnum::Item, new Scripting::ItemHandler());
+        _luaManager->PrepareToAddLuaHandlers((Scripting::LuaHandlerID)MetaGen::Server::Lua::LuaHandlerTypeEnum::Count);
+        _luaManager->SetLuaHandler((Scripting::LuaHandlerID)MetaGen::Server::Lua::LuaHandlerTypeEnum::Global, new Scripting::GlobalHandler());
+        _luaManager->SetLuaHandler((Scripting::LuaHandlerID)MetaGen::Server::Lua::LuaHandlerTypeEnum::Event, new Scripting::EventHandler());
+        _luaManager->SetLuaHandler((Scripting::LuaHandlerID)MetaGen::Server::Lua::LuaHandlerTypeEnum::Message, new Scripting::PacketHandler());
+        _luaManager->SetLuaHandler((Scripting::LuaHandlerID)MetaGen::Server::Lua::LuaHandlerTypeEnum::Unit, new Scripting::UnitHandler());
+        _luaManager->SetLuaHandler((Scripting::LuaHandlerID)MetaGen::Server::Lua::LuaHandlerTypeEnum::Character, new Scripting::CharacterHandler());
+        _luaManager->SetLuaHandler((Scripting::LuaHandlerID)MetaGen::Server::Lua::LuaHandlerTypeEnum::Creature, new Scripting::CreatureHandler());
+        _luaManager->SetLuaHandler((Scripting::LuaHandlerID)MetaGen::Server::Lua::LuaHandlerTypeEnum::Spell, new Scripting::SpellHandler());
+        _luaManager->SetLuaHandler((Scripting::LuaHandlerID)MetaGen::Server::Lua::LuaHandlerTypeEnum::Item, new Scripting::ItemHandler());
 
         auto globalKey = Scripting::ZenithInfoKey::MakeGlobal(0, 0);
         _luaManager->GetZenithStateManager().Add(globalKey);
